@@ -112,3 +112,115 @@ body {
 .glow-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(0, 210, 255, 0.15); }
 .glow-2 { bottom: -10%; right: -10%; width: 60vw; height: 60vw; background: rgba(162, 15, 255, 0.1); }
 
+/* Premium Digital Notebook Theme */
+.notebook-container {
+  position: relative;
+  background-color: #0b0e17;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.notebook-page {
+  position: relative;
+  background: radial-gradient(circle at 50% 50%, #0d111d 0%, #0a0c14 100%);
+  padding: 2.5rem;
+  padding-left: 4.5rem; /* Space for the notebook margin lines */
+  border-radius: 18px;
+  min-height: 400px;
+}
+
+/* Notebook Margins (handwritten feel) */
+.notebook-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.5rem;
+  width: 2px;
+  background: rgba(0, 251, 255, 0.35); /* Neon Cyan vertical line */
+  box-shadow: 0 0 8px rgba(0, 251, 255, 0.2);
+}
+
+.notebook-page::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.7rem;
+  width: 1px;
+  background: rgba(168, 85, 247, 0.3); /* Purple accent line */
+}
+
+/* Callout Box Styling */
+.callout-box {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.callout-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+.formula-callout {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.05);
+}
+.note-callout {
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.05);
+}
+.shortcut-callout {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.05);
+}
+.tip-callout {
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.05);
+}
+.mistake-callout {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.05);
+}
+
+/* Large Equations */
+.math-block-container {
+  font-size: 1.25rem;
+  line-height: 1.75;
+  color: #00FBFF;
+  text-shadow: 0 0 10px rgba(0, 251, 255, 0.2);
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: rgba(10, 14, 26, 0.6);
+  border: 1px solid rgba(0, 251, 255, 0.15);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Inline Equations */
+.math-inline-container {
+  font-size: 1.05rem;
+  color: #67e8f9;
+  font-weight: 600;
+  text-shadow: 0 0 4px rgba(103, 232, 249, 0.1);
+}
+
+/* Indented Derivations */
+.derivation-step {
+  border-left: 2px dashed rgba(255, 255, 255, 0.08);
+  margin-left: 0.5rem;
+  padding-left: 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* KaTeX custom sizing tweaks */
+.katex-display {
+  margin: 0.5em 0 !important;
+}
+
+.katex {
+  font-size: 1.1em !important;
+}
+.katex-display > .katex {
+  font-size: 1.2em !important;
+}
+
+

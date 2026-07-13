@@ -9,6 +9,7 @@ import AISolverScreen from "./components/AISolverScreen";
 import PracticeScreen from "./components/PracticeScreen";
 import ProfileScreen from "./components/ProfileScreen";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import AILessonScreen from "./components/AILessonScreen";
 import { supabase } from "./lib/supabase";
 import { getUserProfile, getLearningPreferences } from "./services/profileService";
 import { UserState, MathLevel } from "./types";
@@ -21,8 +22,10 @@ import { initialiseCloudSync } from './services/cloudSyncService';
 
 export default function App() {
   const [screen, setScreen] = useState<
-    "onboarding" | "auth" | "level-selection" | "dashboard" | "solver" | "practice" | "profile" | "analytics"
+    "onboarding" | "auth" | "level-selection" | "dashboard" | "solver" | "practice" | "profile" | "analytics" | "lesson"
   >("onboarding");
+
+  const [selectedLessonTopic, setSelectedLessonTopic] = useState<string>("");
 
   const [userState, setUserState] = useState<UserState>(() => {
     const cached = localStorage.getItem("mathverse_user");
@@ -287,11 +290,24 @@ export default function App() {
           userState={userState}
           onSolveRedirect={() => setScreen("solver")}
           onPracticeRedirect={handlePracticeRedirect}
+          onLessonRedirect={(topic: string) => {
+            setSelectedLessonTopic(topic);
+            setScreen("lesson");
+          }}
           onProfileRedirect={() => setScreen("profile")}
           onChangeLevelRedirect={() => setScreen("level-selection")}
           onDiagnosticsRedirect={() => setScreen("analytics")}
           onLogOut={handleLogOut}
           onAvatarChange={handleAvatarChange}
+        />
+      )}
+
+      {screen === "lesson" && (
+        <AILessonScreen
+          topic={selectedLessonTopic}
+          userState={userState}
+          onBack={() => setScreen("dashboard")}
+          onAddScore={handleAddScore}
         />
       )}
 

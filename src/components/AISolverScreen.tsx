@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Sparkles, ArrowLeft, Loader2, PlaySquare, AlertCircle,
-  Copy, Check, CheckCircle2, ImagePlus, Camera, X
+  Copy, Check, CheckCircle2, ImagePlus, Camera, X, Zap
 } from "lucide-react";
 import { MathLevel, UserState } from "../types";
-import { generateMathSolution, solveMathFromImage } from "../services/aiService";
+import { solveMathStreaming, solveImage } from "../services/ai/AIManager";
+import { formatResponse, stripHtml } from "../services/ai/ResponseFormatter";
+import { formatUserError } from "../services/ai/ErrorHandler";
+import type { MathVerseError } from "../services/ai/ErrorHandler";
 import { supabase } from "../lib/supabase";
 import CameraCapture from "./CameraCapture";
 
@@ -21,6 +24,10 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [solutionHTML, setSolutionHTML] = useState<string | null>(null);
+  const [streamingRaw, setStreamingRaw] = useState<string>("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [solveStage, setSolveStage] = useState<string>("");
+  const abortRef = useRef<AbortController | null>(null);
 
   // Image state (upload or camera)
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -101,90 +108,113 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
     e.preventDefault();
     if (!problemText.trim() && !imageFile) return;
 
+    // Cancel any previous request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setSolving(true);
     setError("");
     setSolutionHTML(null);
+    setStreamingRaw("");
+    setIsStreaming(false);
 
     try {
-      let result: string;
-
       if (imageFile) {
-        // Image present: use vision model. Pass text too if available.
-        result = await solveMathFromImage(
-          imageFile,
-          currentLevel.name,
-          userState.learningMode,
-          problemText.trim() || undefined
-        );
-      } else {
-        result = await generateMathSolution(problemText, currentLevel.name, userState.learningMode);
-      }
-
-      const isError =
-        result === "MathVerse AI is temporarily unavailable." ||
-        result.startsWith("Image solving model is currently unavailable");
-
-      if (isError) {
-        setError(result);
-      } else {
-        setSolutionHTML(result);
+        // ── Image path: OCR + vision model chain ─────────────────────────
+        setSolveStage("Preprocessing image…");
+        const result = await solveImage({
+          file: imageFile,
+          level: currentLevel.name,
+          learningMode: userState.learningMode,
+          additionalText: problemText.trim() || undefined,
+          onProgress: (stage) => {
+            const labels = {
+              validating: "Validating image…",
+              preprocessing: "Enhancing image for OCR…",
+              sending: "Sending to vision AI…",
+              formatting: "Formatting solution…",
+            };
+            setSolveStage(labels[stage]);
+          },
+        });
+        setSolutionHTML(result.html);
+        setSolveStage("");
         onIncrementSolved();
         if (userState.email) {
           await supabase.from("ai_history").insert({
             user_email: userState.email,
-            question: imageFile ? `[image${problemText.trim() ? ` + "${problemText.trim()}"` : ""}]` : problemText,
-            answer: result,
-            input_type: imageFile ? imageSource : "text"
+            question: `[image${problemText.trim() ? ` + "${problemText.trim()}"` : ""}]`,
+            answer: stripHtml(result.html),
+            input_type: imageSource ?? "upload",
           });
         }
+      } else {
+        // ── Text path: streaming ─────────────────────────────────────────
+        setIsStreaming(true);
+        setSolveStage("Connecting to AI…");
+
+        await new Promise<void>((resolve) => {
+          solveMathStreaming(
+            problemText,
+            currentLevel.name,
+            {
+              onChunk: (accumulated) => {
+                setStreamingRaw(accumulated);
+                setSolveStage("");
+              },
+              onComplete: (result) => {
+                setIsStreaming(false);
+                setSolutionHTML(result.html);
+                setStreamingRaw("");
+                onIncrementSolved();
+                if (userState.email) {
+                  supabase.from("ai_history").insert({
+                    user_email: userState.email,
+                    question: problemText,
+                    answer: result.raw,
+                    input_type: "text",
+                  });
+                }
+                resolve();
+              },
+              onError: (err: MathVerseError) => {
+                setIsStreaming(false);
+                setError(formatUserError(err));
+                resolve();
+              },
+              signal: controller.signal,
+            },
+            userState.learningMode
+          );
+        });
       }
-    } catch (err: any) {
-      console.error("Groq error caught:", err);
-      setError("MathVerse AI is temporarily unavailable.");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? formatUserError(err as MathVerseError)
+          : 'MathVerse AI is temporarily unavailable.';
+      setError(msg);
+      setIsStreaming(false);
     } finally {
       setSolving(false);
+      setSolveStage("");
     }
   };
 
   const handleCopySolution = () => {
     if (!solutionHTML) return;
-    navigator.clipboard.writeText(solutionHTML);
+    navigator.clipboard.writeText(stripHtml(solutionHTML));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ── Markdown Renderer ────────────────────────────────────────────────────────
+  // Cancel in-flight request on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
-  const formatMarkdownText = (text: string) => {
-    let formatted = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-
-    formatted = formatted.replace(/^### (.*$)/gim, '<h4 class="text-md font-bold text-cyan-300 mt-4 mb-2">$1</h4>');
-    formatted = formatted.replace(/^## (.*$)/gim, '<h3 class="text-lg font-bold text-[#00FBFF] border-b border-white/5 pb-2 mt-6 mb-3">$1</h3>');
-    formatted = formatted.replace(/^# (.*$)/gim, '<h2 class="text-xl font-extrabold text-white mt-8 mb-4">$1</h2>');
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="text-[#00d2ff] font-semibold">$1</strong>');
-    formatted = formatted.replace(/\*(.*?)\*/g, '<em class="text-purple-300">$1</em>');
-    formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-950 font-mono text-xs p-4 rounded-xl border border-slate-800 text-teal-300 overflow-x-auto my-4">$1</pre>');
-    formatted = formatted.replace(/`([^`]+)`/g, '<code class="bg-[#0f131f] border border-slate-800 font-mono text-xs px-2 py-1 rounded text-cyan-300">$1</code>');
-    formatted = formatted.replace(/\$+(.*?)\$+/g, '<span class="font-mono text-sm px-2 py-1 mx-1 tracking-wide bg-[#0a0e1a] rounded border border-cyan-500/10 text-cyan-300 select-all">$1</span>');
-
-    formatted = formatted
-      .split("\n")
-      .map((line) => {
-        if (/^[-*+]\s+(.*)/.test(line)) return line.replace(/^[-*+]\s+(.*)/, '<li class="ml-4 list-disc text-sm text-slate-300 mb-1">$1</li>');
-        if (/^\d+\.\s+(.*)/.test(line)) return line.replace(/^\d+\.\s+(.*)/, '<li class="ml-4 list-decimal text-sm text-slate-300 mb-1">$1</li>');
-        if (!line.trim()) return '<div class="h-2"></div>';
-        if (line.startsWith("<h") || line.startsWith("<li") || line.startsWith("<pre")) return line;
-        return `<p class="text-sm text-slate-300 leading-relaxed mb-3">${line}</p>`;
-      })
-      .join("");
-
-    return formatted;
-  };
-
-  const canSubmit = !solving && (!!problemText.trim() || !!imageFile);
+  const canSubmit = !solving && !isStreaming && (!!problemText.trim() || !!imageFile);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -363,12 +393,14 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
           {/* ── Right Column: Solution Viewer ─────────────────────────── */}
           <div className="lg:col-span-7">
 
-            {/* Loading state */}
-            {solving && (
+            {/* Loading/Streaming state */}
+            {(solving && !isStreaming) && (
               <div className="glass-card rounded-2xl p-8 border border-cyan-500/10 bg-slate-950/20 flex flex-col items-center justify-center min-h-[400px] text-center gap-6">
                 <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
                 <div className="space-y-2">
-                  <h4 className="text-[#00FBFF] text-lg font-bold font-sans tracking-tight animate-pulse">Calibrating Vector Steps</h4>
+                  <h4 className="text-[#00FBFF] text-lg font-bold font-sans tracking-tight animate-pulse">
+                    {solveStage || "Calibrating Vector Steps"}
+                  </h4>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto font-sans">
                     MathVerse is parsing structural logic via Groq generation. Formulating intuitive answers with step-by-step takeaways.
                   </p>
@@ -379,6 +411,20 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                   <div className="h-3.5 bg-slate-900/60 rounded-full animate-pulse w-5/6"></div>
                   <div className="h-4 bg-slate-900/40 rounded-full animate-pulse w-2/3"></div>
                 </div>
+              </div>
+            )}
+
+            {/* Streaming output — live token-by-token display */}
+            {isStreaming && streamingRaw && (
+              <div className="glass-panel rounded-2xl border border-cyan-500/30 overflow-hidden shadow-2xl relative">
+                <div className="bg-slate-950/60 border-b border-slate-900 px-6 py-3 flex items-center gap-2 text-xs font-mono text-cyan-400 uppercase tracking-widest">
+                  <Zap className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                  Streaming Live Response…
+                </div>
+                <div
+                  className="p-6 md:p-8 max-h-[600px] overflow-y-auto font-sans text-slate-300"
+                  dangerouslySetInnerHTML={{ __html: formatResponse(streamingRaw) }}
+                />
               </div>
             )}
 
@@ -407,7 +453,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
             )}
 
             {/* Solution output */}
-            {!solving && !error && solutionHTML && (
+            {!isStreaming && !error && solutionHTML && (
               <div className="glass-panel rounded-2xl border border-[#00FBFF]/20 overflow-hidden shadow-2xl relative">
 
                 {/* Result header */}
@@ -427,7 +473,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Markdown</span>
+                        <span>Copy Text</span>
                       </>
                     )}
                   </button>
@@ -436,7 +482,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                 {/* Formatted solution body */}
                 <div
                   className="p-6 md:p-8 max-h-[600px] overflow-y-auto font-sans text-slate-300"
-                  dangerouslySetInnerHTML={{ __html: formatMarkdownText(solutionHTML) }}
+                  dangerouslySetInnerHTML={{ __html: solutionHTML }}
                 />
 
                 {/* Footer stamp */}
