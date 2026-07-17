@@ -54,6 +54,7 @@ import type {
 } from "../services/ai/LessonPromptBuilder";
 import { formatResponse, renderKatex } from "../services/ai/ResponseFormatter";
 import { askProfessor } from "../services/ai/AIManager";
+import { MathRenderer } from "./MathRenderer";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -658,10 +659,9 @@ export default function AILessonScreen({
 
               <div className="border border-slate-800/50 rounded-xl p-5">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-teal-400 mb-3">Foundational Concepts</h4>
-                <div
-                  className="text-xs text-slate-300 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: safeRender(data.basicConcepts) }}
-                />
+                <div className="text-xs text-slate-300 leading-relaxed">
+                  <MathRenderer text={safeString(data.basicConcepts)} />
+                </div>
               </div>
 
               <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
@@ -693,25 +693,24 @@ export default function AILessonScreen({
               <div className="flex flex-col gap-4">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400">Core Formulas</h4>
                 {safeArray<{ name: string; formula: string; variables: string; explanation: string }>(data.formulas).map((item, idx) => (
-                  <div key={idx} className="bg-slate-950/60 border border-slate-900 hover:border-cyan-500/20 rounded-xl p-5 flex flex-col gap-3 transition-all">
+                  <div key={idx} className="border-b border-slate-900/50 py-4 flex flex-col gap-2">
                     <div className="flex justify-between items-start flex-wrap gap-3">
                       <span className="text-xs font-bold text-white font-mono">{safeString(item.name)}</span>
-                      <span className="font-mono text-xs text-cyan-300 select-all tracking-wider font-bold bg-[#0f131f] border border-cyan-500/20 px-3 py-1 rounded">
-                        {safeString(item.formula)}
+                      <span className="font-mono text-xs text-cyan-300 select-all tracking-wider font-bold">
+                        <MathRenderer text={safeString(item.formula)} />
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-500 font-mono">Variables: {safeString(item.variables)}</div>
-                    <div className="text-xs text-slate-400 leading-relaxed font-sans">{safeString(item.explanation)}</div>
+                    <div className="text-[11px] text-slate-500 font-mono">Variables: <MathRenderer text={safeString(item.variables)} /></div>
+                    <div className="text-xs text-slate-400 leading-relaxed font-sans"><MathRenderer text={safeString(item.explanation)} /></div>
                   </div>
                 ))}
               </div>
 
-              <div className="border border-slate-900 rounded-xl p-5 bg-[#0f131f]/20">
+              <div className="py-5">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-amber-500 mb-3">Formula Derivation</h4>
-                <div
-                  className="text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre bg-slate-950 p-4 border border-slate-900 rounded-lg select-all"
-                  dangerouslySetInnerHTML={{ __html: safeRender(data.derivations) }}
-                />
+                <div className="text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre select-all">
+                  <MathRenderer text={safeString(data.derivations)} />
+                </div>
               </div>
 
               <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
@@ -729,69 +728,100 @@ export default function AILessonScreen({
 
           {/* ── TAB: Examples ── */}
           {activeTab === "examples" && renderSection(examplesState, "examples", "Solved Examples", (data) => (
-            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
+            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-8">
+              {/* Header */}
               <div>
                 <h2 className="text-xl font-bold text-white tracking-wide font-sans">{topic} — Solved Examples</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Multi-tier solved sets</p>
+                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Step-by-step classroom walkthrough</p>
               </div>
 
+              {/* Three Tiers */}
               {[
-                { label: "Tier 1: Beginner", color: "green", ex: data.beginnerExample },
-                { label: "Tier 2: Intermediate", color: "purple", ex: data.mediumExample },
-                { label: "Tier 3: Engineering-Level", color: "amber", ex: data.engineeringExample },
-              ].map(({ label, color, ex }, idx) => (
-                <div key={idx} className="notebook-container mb-6 overflow-hidden">
+                { label: "Tier 1 — Beginner", color: "green", ex: data.beginnerExample, accentClass: "border-green-500/30 text-green-400" },
+                { label: "Tier 2 — Intermediate", color: "purple", ex: data.mediumExample, accentClass: "border-purple-500/30 text-purple-400" },
+                { label: "Tier 3 — Engineering", color: "amber", ex: data.engineeringExample, accentClass: "border-amber-500/30 text-amber-400" },
+              ].map(({ label, ex, accentClass }, idx) => (
+                <div key={idx} className="notebook-container overflow-hidden">
                   <div className="notebook-page">
-                    <div className="mb-4">
-                      <div className={`inline-block px-2.5 py-0.5 rounded-full bg-${color}-500/10 border border-${color}-500/20 text-${color}-400 text-[10px] font-mono uppercase mb-3`}>
+                    {/* Example Header */}
+                    <div className="mb-5">
+                      <span className={`inline-block text-[10px] font-mono uppercase tracking-widest border rounded-full px-3 py-0.5 mb-3 ${accentClass}`}>
                         {label}
+                      </span>
+                      <h3 className="text-base font-bold text-white tracking-wide font-sans leading-snug">
+                        {safeString(ex?.title, "Solved Example")}
+                      </h3>
+                      {/* Question — use div, never p, to avoid nesting violations */}
+                      <div className="text-sm text-slate-300 mt-2 leading-relaxed font-sans">
+                        <MathRenderer text={safeString(ex?.question)} block={true} />
                       </div>
-                      <h3 className="text-sm font-bold text-white tracking-wide font-sans">{safeString(ex?.title, "Solved Example")}</h3>
-                      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed font-sans">{safeString(ex?.question)}</p>
                     </div>
 
-                    <div className="space-y-4 mt-6">
+                    {/* Steps — Handwritten Classroom Notes Layout */}
+                    <div className="flex flex-col gap-0 mt-4">
                       {safeArray<{ heading: string; explanation: string; equation: string }>(ex?.steps).map((step, sIdx) => (
-                        <div key={sIdx} className="derivation-step animate-in fade-in slide-in-from-left-5 duration-300">
-                          <h4 className="text-xs font-mono text-cyan-400 uppercase tracking-widest">{safeString(step.heading)}</h4>
-                          <p className="text-xs text-slate-300 mt-1 font-sans leading-relaxed">{safeString(step.explanation)}</p>
+                        <div key={sIdx} className="lesson-step-card">
+                          {/* Step heading */}
+                          <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-[0.12em] font-semibold">
+                            {safeString(step.heading)}
+                          </div>
+
+                          {/* Explanation — plain text, div wrapper */}
+                          {step.explanation && (
+                            <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                              <MathRenderer text={safeString(step.explanation)} block={true} />
+                            </div>
+                          )}
+
+                          {/* Equation — immediately after explanation, centred */}
                           {step.equation && (
-                            <div className="math-block-container font-mono text-cyan-300">
-                              {renderKatex(step.equation, true)}
+                            <div className="math-display-block my-1">
+                              <MathRenderer text={step.equation} displayMode={true} />
                             </div>
                           )}
                         </div>
                       ))}
                     </div>
 
+                    {/* Final Answer Banner */}
                     {ex?.finalAnswer && (
-                      <div className="mt-6 p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Final Answer</span>
-                          <div className="text-sm font-bold text-white font-mono mt-1">{safeString(ex.finalAnswer)}</div>
+                      <div className="mt-6 flex items-start gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/15">
+                        <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider mb-1">Final Answer</div>
+                          <div className="text-sm font-semibold text-white font-sans leading-relaxed">
+                            <MathRenderer text={safeString(ex.finalAnswer)} block={true} />
+                          </div>
                         </div>
-                        <CheckCircle className="w-5 h-5 text-emerald-400" />
                       </div>
                     )}
                   </div>
                 </div>
               ))}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 border-t border-slate-900 pt-5">
+              {/* Tips / Tricks / Mistakes */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-900 pt-5">
                 <div className="bg-red-950/5 border border-red-500/15 rounded-xl p-4">
-                  <h4 className="text-[11px] font-mono uppercase text-red-400 tracking-wider mb-2">Common Mistakes</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans">{safeString(data.commonMistakes)}</p>
+                  <h4 className="text-[10px] font-mono uppercase text-red-400 tracking-wider mb-2">⚠ Common Mistakes</h4>
+                  <div className="text-xs text-slate-400 leading-relaxed font-sans">
+                    <MathRenderer text={safeString(data.commonMistakes)} block={true} />
+                  </div>
                 </div>
                 <div className="bg-cyan-950/5 border border-cyan-500/15 rounded-xl p-4">
-                  <h4 className="text-[11px] font-mono uppercase text-cyan-400 tracking-wider mb-2">Short Tricks</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans">{safeString(data.shortTricks)}</p>
+                  <h4 className="text-[10px] font-mono uppercase text-cyan-400 tracking-wider mb-2">⚡ Short Tricks</h4>
+                  <div className="text-xs text-slate-400 leading-relaxed font-sans">
+                    <MathRenderer text={safeString(data.shortTricks)} block={true} />
+                  </div>
                 </div>
                 <div className="bg-purple-950/5 border border-purple-500/15 rounded-xl p-4">
-                  <h4 className="text-[11px] font-mono uppercase text-purple-400 tracking-wider mb-2">Exam Tips</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans">{safeString(data.examTips)}</p>
+                  <h4 className="text-[10px] font-mono uppercase text-purple-400 tracking-wider mb-2">📝 Exam Tips</h4>
+                  <div className="text-xs text-slate-400 leading-relaxed font-sans">
+                    <MathRenderer text={safeString(data.examTips)} block={true} />
+                  </div>
                 </div>
               </div>
 
+              {/* Next CTA */}
               <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
                 <p className="text-xs text-slate-400">Examples done! Ready to test yourself?</p>
                 <button
@@ -818,10 +848,10 @@ export default function AILessonScreen({
 
                 <div className="bg-[#0f131f]/40 border border-slate-900 rounded-xl p-6 flex flex-col gap-4">
                   <h3 className="text-sm font-bold text-white font-mono leading-relaxed">
-                    {safeString(practiceState.data.question)}
+                    <MathRenderer text={safeString(practiceState.data.question)} />
                   </h3>
                   <div className="p-3 bg-slate-950 border border-slate-900 rounded-lg text-xs text-slate-500 font-sans italic">
-                    💡 Hint: {safeString(practiceState.data.hint)}
+                    💡 Hint: <MathRenderer text={safeString(practiceState.data.hint)} />
                   </div>
                 </div>
 
@@ -858,10 +888,9 @@ export default function AILessonScreen({
                     <CheckCircle className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-xs font-bold text-green-400 font-mono uppercase tracking-wider">Fantastic Job!</h4>
-                      <div
-                        className="text-xs text-slate-300 mt-2 font-sans leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: safeRender(practiceAssessment.explanation) }}
-                      />
+                      <div className="text-xs text-slate-300 mt-2 font-sans leading-relaxed">
+                        <MathRenderer text={practiceAssessment.explanation} />
+                      </div>
                       <div className="mt-5 flex gap-3 flex-wrap">
                         <button onClick={() => handleRetryPractice()} className="cursor-pointer border border-green-500/40 text-green-300 hover:text-white bg-green-950/20 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all">
                           <RefreshCw className="w-3.5 h-3.5" /> Another Problem
@@ -879,10 +908,9 @@ export default function AILessonScreen({
                     <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-xs font-bold text-red-400 font-mono uppercase tracking-wider">Let's Adjust Your Approach</h4>
-                      <div
-                        className="text-xs text-slate-300 mt-2 font-sans leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: safeRender(practiceAssessment.explanation) }}
-                      />
+                      <div className="text-xs text-slate-300 mt-2 font-sans leading-relaxed">
+                        <MathRenderer text={practiceAssessment.explanation} />
+                      </div>
                       <div className="mt-5 flex gap-3 flex-wrap">
                         {practiceAssessment.newExample && (
                           <button
@@ -922,7 +950,7 @@ export default function AILessonScreen({
                       return (
                         <div key={q.id} className="bg-[#0f131f]/30 border border-slate-900 rounded-xl p-5 flex flex-col gap-4">
                           <div className="flex justify-between items-start gap-2">
-                            <span className="text-xs font-bold text-white font-mono">Q{idx + 1}: {safeString(q.question)}</span>
+                            <span className="text-xs font-bold text-white font-mono">Q{idx + 1}: <MathRenderer text={safeString(q.question)} /></span>
                             {quizSubmitted && (
                               <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isCorrect ? "text-green-400 bg-green-500/10 border-green-500/20" : "text-red-400 bg-red-500/10 border-red-500/20"}`}>
                                 {isCorrect ? "Correct" : "Incorrect"}
@@ -951,7 +979,7 @@ export default function AILessonScreen({
                                       : "bg-slate-950/60 border-slate-900 text-slate-400 hover:text-white"
                                   }`}
                                 >
-                                  <span>{safeString(opt)}</span>
+                                  <span><MathRenderer text={safeString(opt)} /></span>
                                   {isSelected && (
                                     quizSubmitted
                                       ? isCorrect
@@ -967,7 +995,7 @@ export default function AILessonScreen({
                           {quizSubmitted && !isCorrect && (
                             <div className="bg-slate-950 p-4 border border-slate-900 rounded-lg text-[11px] text-slate-400 font-sans leading-relaxed">
                               <span className="text-cyan-400 font-mono font-bold">Professor: </span>
-                              {safeString(q.explanation)}
+                              <MathRenderer text={safeString(q.explanation)} />
                             </div>
                           )}
                         </div>
@@ -1019,11 +1047,11 @@ export default function AILessonScreen({
 
                 <div className="bg-[#0f131f]/60 border border-slate-900 rounded-xl p-6 flex flex-col gap-4">
                   <h3 className="text-sm font-bold text-white font-mono leading-relaxed">
-                    {safeString(challengeState.data.question)}
+                    <MathRenderer text={safeString(challengeState.data.question)} />
                   </h3>
                   {showChallengeHint ? (
                     <div className="p-3 bg-purple-950/20 border border-purple-500/20 text-purple-300 text-xs rounded-lg font-sans">
-                      💡 Professor's Hint: {safeString(challengeState.data.hint)}
+                      💡 Professor's Hint: <MathRenderer text={safeString(challengeState.data.hint)} />
                     </div>
                   ) : (
                     <button onClick={() => setShowChallengeHint(true)} className="cursor-pointer w-fit text-xs font-mono text-purple-400 hover:text-purple-300 transition-colors">
@@ -1060,10 +1088,9 @@ export default function AILessonScreen({
                         {challengeCorrect ? "Challenge Conquered! 🏆" : "Not Quite — Try Again"}
                       </h4>
                       {challengeAssessment && (
-                        <div
-                          className="text-xs text-slate-300 mt-2 font-sans leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: safeRender(challengeAssessment.explanation) }}
-                        />
+                        <div className="text-xs text-slate-300 mt-2 font-sans leading-relaxed">
+                          <MathRenderer text={challengeAssessment.explanation} />
+                        </div>
                       )}
                       {!challengeCorrect && (
                         <button
@@ -1102,12 +1129,16 @@ export default function AILessonScreen({
 
               <div className="bg-[#0f131f]/50 border border-cyan-500/10 rounded-xl p-5">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400 mb-3">Lesson Recap</h4>
-                <p className="text-sm text-slate-300 leading-relaxed font-sans">{safeString(data.summary)}</p>
+                <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                  <MathRenderer text={safeString(data.summary)} block={true} />
+                </div>
               </div>
 
               <div className="bg-slate-950 border border-slate-900 rounded-xl p-5">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-3">Key Formula Cheat Sheet</h4>
-                <p className="text-xs text-cyan-300 font-mono leading-relaxed">{safeString(data.keyFormulas)}</p>
+                <div className="text-xs text-cyan-300 font-mono leading-relaxed">
+                  <MathRenderer text={safeString(data.keyFormulas)} block={true} />
+                </div>
               </div>
 
               {safeString(data.nextTopic) && (
@@ -1234,8 +1265,9 @@ export default function AILessonScreen({
                           ? "bg-cyan-500/15 border border-cyan-500/25 text-white rounded-br-none"
                           : "bg-slate-950 border border-slate-900 text-slate-300 rounded-bl-none font-mono"
                       }`}
-                      dangerouslySetInnerHTML={{ __html: safeRender(msg.content) }}
-                    />
+                    >
+                      <MathRenderer text={msg.content} />
+                    </div>
                   </div>
                 ))
               )}

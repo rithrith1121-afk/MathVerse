@@ -29,6 +29,7 @@ export interface ImageSolveOptions {
 
 export interface ImageSolveResult {
   html: string;
+  raw: string;
   modelUsed: string;
   durationMs: number;
 }
@@ -120,6 +121,7 @@ export async function solveImageProblem(options: ImageSolveOptions): Promise<Ima
 
   return {
     html,
+    raw: result.text,
     modelUsed: result.modelUsed,
     durationMs: result.durationMs,
   };

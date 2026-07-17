@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Loader2, Award, ArrowRight, BrainCircuit, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { MathLevel, PracticeQuestion, UserState } from "../types";
+import { MathRenderer } from "./MathRenderer";
 
 interface PracticeScreenProps {
   userState: UserState;
@@ -168,7 +169,7 @@ export default function PracticeScreen({ userState, selectedTopic, onBack, onAdd
                 Category Vector Question
               </span>
               <h3 className="text-lg md:text-xl font-sans mt-4 text-white leading-relaxed">
-                {currentQ.question}
+                <MathRenderer text={currentQ.question} />
               </h3>
             </div>
 
@@ -206,7 +207,7 @@ export default function PracticeScreen({ userState, selectedTopic, onBack, onAdd
                       <span className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-mono text-xs text-slate-500">
                         {String.fromCharCode(65 + idx)}
                       </span>
-                      <span>{option}</span>
+                      <span><MathRenderer text={option} /></span>
                     </span>
                     {iconToRender}
                   </button>
@@ -220,7 +221,7 @@ export default function PracticeScreen({ userState, selectedTopic, onBack, onAdd
                 <div className="space-y-1">
                   <span className="text-[10px] font-mono text-purple-400 uppercase tracking-widest">Pedagogical Insight</span>
                   <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                    {currentQ.explanation}
+                    <MathRenderer text={currentQ.explanation} />
                   </p>
                 </div>
 

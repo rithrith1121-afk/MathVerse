@@ -8,6 +8,7 @@ import { solveMathStreaming, solveImage } from "../services/ai/AIManager";
 import { formatResponse, stripHtml } from "../services/ai/ResponseFormatter";
 import { formatUserError } from "../services/ai/ErrorHandler";
 import type { MathVerseError } from "../services/ai/ErrorHandler";
+import { MathRenderer } from "./MathRenderer";
 import { supabase } from "../lib/supabase";
 import CameraCapture from "./CameraCapture";
 
@@ -24,6 +25,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [solutionHTML, setSolutionHTML] = useState<string | null>(null);
+  const [solutionRaw, setSolutionRaw] = useState<string | null>(null);
   const [streamingRaw, setStreamingRaw] = useState<string>("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [solveStage, setSolveStage] = useState<string>("");
@@ -116,6 +118,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
     setSolving(true);
     setError("");
     setSolutionHTML(null);
+    setSolutionRaw(null);
     setStreamingRaw("");
     setIsStreaming(false);
 
@@ -139,6 +142,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
           },
         });
         setSolutionHTML(result.html);
+        setSolutionRaw(result.raw);
         setSolveStage("");
         onIncrementSolved();
         if (userState.email) {
@@ -166,6 +170,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
               onComplete: (result) => {
                 setIsStreaming(false);
                 setSolutionHTML(result.html);
+                setSolutionRaw(result.raw);
                 setStreamingRaw("");
                 onIncrementSolved();
                 if (userState.email) {
@@ -203,8 +208,8 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
   };
 
   const handleCopySolution = () => {
-    if (!solutionHTML) return;
-    navigator.clipboard.writeText(stripHtml(solutionHTML));
+    if (!solutionRaw) return;
+    navigator.clipboard.writeText(solutionRaw);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -421,10 +426,9 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                   <Zap className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
                   Streaming Live Response…
                 </div>
-                <div
-                  className="p-6 md:p-8 max-h-[600px] overflow-y-auto font-sans text-slate-300"
-                  dangerouslySetInnerHTML={{ __html: formatResponse(streamingRaw) }}
-                />
+                <div className="p-6 md:p-8 max-h-[600px] overflow-y-auto font-sans text-slate-300">
+                  <MathRenderer text={streamingRaw} />
+                </div>
               </div>
             )}
 
@@ -440,7 +444,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
             )}
 
             {/* Empty state */}
-            {!solving && !error && !solutionHTML && (
+            {!solving && !error && !solutionRaw && (
               <div className="glass-card rounded-2xl p-8 border border-dashed border-slate-800 flex flex-col items-center justify-center min-h-[420px] text-center text-slate-500 gap-4">
                 <Sparkles className="w-12 h-12 text-slate-700 animate-pulse" />
                 <div>
@@ -453,7 +457,7 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
             )}
 
             {/* Solution output */}
-            {!isStreaming && !error && solutionHTML && (
+            {!isStreaming && !error && solutionRaw && (
               <div className="glass-panel rounded-2xl border border-[#00FBFF]/20 overflow-hidden shadow-2xl relative">
 
                 {/* Result header */}
@@ -480,10 +484,9 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                 </div>
 
                 {/* Formatted solution body */}
-                <div
-                  className="p-6 md:p-8 max-h-[600px] overflow-y-auto font-sans text-slate-300"
-                  dangerouslySetInnerHTML={{ __html: solutionHTML }}
-                />
+                <div className="p-6 md:p-8 max-h-[600px] overflow-y-auto font-sans text-slate-300">
+                  <MathRenderer text={solutionRaw} />
+                </div>
 
                 {/* Footer stamp */}
                 <div className="bg-slate-950/40 border-t border-slate-900 px-6 py-3 text-[10px] text-slate-500 font-mono flex items-center justify-between">

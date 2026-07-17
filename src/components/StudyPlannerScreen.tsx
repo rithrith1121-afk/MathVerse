@@ -4,6 +4,7 @@ import {
   CheckCircle2, Clock, BookOpen, AlertCircle, RefreshCw, Star
 } from "lucide-react";
 import { MathLevel, UserState } from "../types";
+import { MathRenderer } from "./MathRenderer";
 import { 
   createDailyGoal, 
   updateGoalStatus, 
@@ -461,10 +462,9 @@ export default function StudyPlannerScreen({ userState, onBack }: StudyPlannerSc
                   <h4 className="text-xs font-mono uppercase tracking-widest text-[#00FBFF]">Active AI Plan Matrix</h4>
                 </div>
 
-                <div 
-                  className="p-6 max-h-[300px] overflow-y-auto text-slate-300 font-sans"
-                  dangerouslySetInnerHTML={{ __html: formatMarkdown(activePlan) }}
-                />
+                <div className="p-6 max-h-[300px] overflow-y-auto text-slate-300 font-sans">
+                  <MathRenderer text={activePlan} />
+                </div>
               </div>
             )}
 
