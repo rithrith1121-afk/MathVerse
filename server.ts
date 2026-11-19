@@ -123,13 +123,17 @@ $$\\boxed{\\text{Result}}$$
 Short closing sentence stating the final conclusion clearly.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-LATEX RENDERING RULES
+LATEX RENDERING & SYMBOL RULES (STRICT)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- ALWAYS wrap standalone equations, matrices, and expressions in $$ ... $$ display blocks.
-- ALWAYS wrap inline variables, constants, and math symbols in $ ... $ (e.g. $x$, $\\lambda$, $a=1$).
+- STRICTLY PROHIBIT UNWANTED OR UNRELATED SYMBOLS: Do NOT output any extraneous characters, stray backslashes, arbitrary symbols, or decorative characters that are not directly part of the mathematical problem and its solution.
+- COMPLETE FORMULA ENCLOSURE: Every mathematical expression, function, variable, or formula MUST be completely enclosed in its own delimiter:
+  * Use $...$ for inline expressions (e.g. $f(t) = e^{-2t} \\sin(4t)$, $\\mathcal{L}\\{f(t)\\} = F(s)$, $a = 1$).
+  * Use $$...$$ for display equations, derivations, and step calculations.
+- NEVER SPLIT FORMULAS: NEVER place dollar signs inside a formula (e.g. NEVER write $f(t)=e^{-2t}$\\sin(4$t)). The entire formula must be inside a single $...$ or $$...$$ pair.
+- NEVER LEAK BARE LATEX COMMANDS: Never output bare backslash commands like \\sin, \\cos, \\lambda, \\frac, or \\mathcal in plain text without $...$ or $$...$$ delimiters.
 - NEVER output raw unformatted text for math.
 - NEVER output HTML tags, MathML, or pre-rendered KaTeX.
-- Explanations must be plain text outside $$ blocks.`;
+- Explanations must be clean, natural, simple English outside $$ blocks.`;
 
       let userPrompt = `Teach me how to solve this problem step by step, exactly like an engineering mathematics professor writing on a classroom blackboard.
 

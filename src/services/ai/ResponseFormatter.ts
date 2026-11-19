@@ -20,7 +20,12 @@ function escapeHtml(text: string): string {
  */
 export function renderKatex(tex: string, displayMode = false): string {
   try {
-    return katex.renderToString(tex.trim(), {
+    let clean = tex.trim();
+    clean = clean.replace(/^[$]+|[$]+$/g, '').trim();
+    clean = clean.replace(/^\\\(|\\\)$/g, '').trim();
+    clean = clean.replace(/^\\\[|\\\]$/g, '').trim();
+    clean = clean.replace(/\$/g, '');
+    return katex.renderToString(clean, {
       displayMode,
       throwOnError: false,
       trust: true,
@@ -108,18 +113,45 @@ function flushMatrix(rows: string[][]): string {
 }
 
 /**
+ * Normalize LaTeX delimiters: \[...\] -> $$...$$ and \(...\) -> $...$
+ */
+export function normalizeMathDelimiters(text: string): string {
+  if (!text) return '';
+  let str = text;
+  str = str.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+  str = str.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
+  str = str.replace(
+    /(?<!\$\$[\s\S]*?)(?<!\$)((\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}))(?!\$\$)/g,
+    (match) => `\n$$\n${match.trim()}\n$$\n`
+  );
+  return str;
+}
+
+/**
  * Wrap raw LaTeX commands if they are not already inside $ or $$
  */
 function wrapRawLatexCommands(text: string): string {
-  const katexRegex = /\\(lambda|alpha|beta|gamma|delta|theta|pi|phi|psi|omega|sigma|sum|int|lim|frac|sqrt|begin|end|vmatrix|bmatrix|pmatrix|partial|nabla|left|right|infty|le|ge|ne|pm|to|Leftrightarrow|Rightarrow|cdot|times)/;
-  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/);
+  if (!text) return '';
+  const normalized = normalizeMathDelimiters(text);
+  const parts = normalized.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/);
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-    if (!part.startsWith('$') && !part.startsWith('\\[')) {
-      if (katexRegex.test(part)) {
-        parts[i] = part.replace(/(\\[a-zA-Z]+(?:\{[^{}]*\}|\s|[0-9]|\^|-|\+|=|\(|\))*)/g, '$$1$');
+    if (part.startsWith('$')) continue;
+
+    let processed = part;
+    processed = processed.replace(/(?<!\$)\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(?!\$)/g, '$$\\boxed{$1}$$');
+    processed = processed.replace(/(?<!\$)\\frac\{([^{}]+)\}\{([^{}]+)\}(?!\$)/g, '$\\frac{$1}{$2}$');
+    processed = processed.replace(/(?<!\$)\\sqrt\{([^{}]+)\}(?!\$)/g, '$\\sqrt{$1}$');
+
+    processed = processed.replace(/(?<!\$)\\([a-zA-Z]+(?:_[a-zA-Z0-9]+|\^[a-zA-Z0-9]+)?)(?!\$)/g, (match, cmd) => {
+      const knownMathSymbols = /^(lambda|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|partial|nabla|infty|pm|mp|times|div|cdot|approx|neq|leq|geq|in|notin|subset|subseteq|cap|cup|forall|exists|to|rightarrow|leftarrow|Rightarrow|Leftarrow|Leftrightarrow)\b/;
+      if (knownMathSymbols.test(cmd)) {
+        return `$${match}$`;
       }
-    }
+      return match;
+    });
+
+    parts[i] = processed;
   }
   return parts.join('');
 }

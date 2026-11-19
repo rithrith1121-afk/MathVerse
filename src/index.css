@@ -242,6 +242,13 @@ body {
   overflow-wrap: break-word;
 }
 
+/* Prevent KaTeX parse errors from rendering jarring red error highlights */
+.katex-error {
+  color: inherit !important;
+  background: transparent !important;
+  border: none !important;
+}
+
 /* ─── Indented Derivations (step-by-step note lines) ─────────────────────── */
 .derivation-step {
   border-left: 2px dashed rgba(0, 251, 255, 0.15);

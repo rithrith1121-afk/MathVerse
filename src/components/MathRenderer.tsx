@@ -60,22 +60,23 @@ export function repairWordJoins(text: string): string {
 
 export function convertProgrammingSyntaxToMath(text: string): string {
   if (!text) return '';
-  let processed = text;
-
-  // Replace comparison operators outside of existing math blocks?
-  processed = processed.replace(/<=/g, '\\leq');
-  processed = processed.replace(/>=/g, '\\geq');
-  processed = processed.replace(/!=/g, '\\neq');
-  processed = processed.replace(/->/g, '\\rightarrow');
-
-  // Convert raw a^b or a_b into KaTeX by wrapping in $...$ if not already wrapped
-  // This uses a lookbehind and lookahead to check for $ boundaries but simpler is just wrapping
-  // words that contain ^ or _ that aren't inside math blocks. That's done in wrapRawLatexCommands.
-
-  // sqrt(x) -> \sqrt{x}
-  processed = processed.replace(/(?<!\\)sqrt\(([^)]+)\)/g, '$\\sqrt{$1}$');
-
-  return processed;
+  // Split on existing math blocks so we don't break formulas
+  const parts = text.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+\$|\\\([\s\S]*?\\\))/);
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.startsWith('$') || part.startsWith('\\(') || part.startsWith('\\[')) {
+      // Inside math block: convert programming operators like <=, >=, !=, sqrt(x)
+      parts[i] = part
+        .replace(/<=/g, ' \\leq ')
+        .replace(/>=/g, ' \\geq ')
+        .replace(/!=/g, ' \\neq ')
+        .replace(/(?<!\\)sqrt\(([^)]+)\)/g, '\\sqrt{$1}');
+    } else {
+      // In plain text: convert raw sqrt(...) to $\sqrt{...}$
+      parts[i] = part.replace(/(?<!\\)sqrt\(([^)]+)\)/g, '$\\sqrt{$1}$');
+    }
+  }
+  return parts.join('');
 }
 
 export function applyTextFormattingRules(text: string): string {
@@ -98,7 +99,7 @@ export function applyTextFormattingRules(text: string): string {
     processed = processed.replace(new RegExp(key, 'gi'), value);
   }
 
-  // 2. Format Variables vertically
+  // 2. Format Variables vertically if formatted as variable list
   if (processed.includes(':') && processed.includes(',') && processed.split(',').length > 1) {
     const parts = processed.split(',');
     const allHaveColons = parts.every(p => p.includes(':'));
@@ -107,20 +108,12 @@ export function applyTextFormattingRules(text: string): string {
       parts.forEach(p => {
         let [vars, desc] = p.split(':');
         desc = desc.trim();
-        // Capitalize the first letter of the description to match the user's requirements
+        // Capitalize the first letter of the description
         desc = desc.charAt(0).toUpperCase() + desc.slice(1);
         result += `• ${vars.trim()} → ${desc}\n`;
       });
       return result;
     }
-  }
-
-  // 3. Space out mathematical operators
-  // We apply space padding around: = + − × ÷
-  const operators = ['=', '\\+', '−', '×', '÷', '-'];
-  for (const op of operators) {
-    const regex = new RegExp(`(?<!\\s)(${op})(?!\\s)`, 'g');
-    processed = processed.replace(regex, ' $1 ');
   }
 
   return processed;
@@ -184,29 +177,59 @@ function flushMatrix(rows: string[][]): string {
   return `$$\\begin{pmatrix} ${rows.map(r => r.join(' & ')).join(' \\\\ ')} \\end{pmatrix}$$`;
 }
 
+// ─── Delimiter Normalizer ─────────────────────────────────────────────────────
+export function normalizeMathDelimiters(text: string): string {
+  if (!text) return '';
+  let str = text;
+
+  // 1. Convert \[ ... \] display blocks to $$ ... $$
+  str = str.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+
+  // 2. Convert \( ... \) inline math blocks to $ ... $
+  str = str.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
+
+  // 3. Ensure bare LaTeX environments (\begin{aligned}...\end{aligned}, \begin{matrix}...\end{matrix}) are wrapped in $$
+  str = str.replace(
+    /(?<!\$\$[\s\S]*?)(?<!\$)((\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}))(?!\$\$)/g,
+    (match) => `\n$$\n${match.trim()}\n$$\n`
+  );
+
+  return str;
+}
+
 // ─── Auto-wrap Bare LaTeX Commands ────────────────────────────────────────────
 export function wrapRawLatexCommands(text: string): string {
-  // We want to catch ANY leaked math: \lambda, ^, _, \frac, etc.
-  // We will split the text by existing math blocks so we only process plain text parts.
-  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/);
+  if (!text) return '';
+
+  // First normalize all delimiters so that \(...\) and \[...\] become $ and $$
+  const normalized = normalizeMathDelimiters(text);
+
+  // Split by existing math blocks: $$...$$ or $...$
+  const parts = normalized.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/);
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-    if (!part.startsWith('$') && !part.startsWith('\\[')) {
-      let processed = part;
-      // Catch bare \lambda, \frac, \begin, etc.
-      const katexRegex = /\\(lambda|alpha|beta|gamma|delta|theta|pi|phi|psi|omega|sigma|sum|int|lim|frac|sqrt|begin|end|vmatrix|bmatrix|pmatrix|partial|nabla|left|right|infty|le|ge|ne|pm|to|Leftrightarrow|Rightarrow|cdot|times)/g;
-      
-      // If there's a leaked command, we wrap the contiguous mathy word in $
-      processed = processed.replace(/(\\[a-zA-Z]+(?:\{[^{}]*\}|\s|[0-9]|\^|_|-|\+|=|\(|\))*)/g, '$$$1$$');
-      
-      // Catch leaked ^ or _ e.g. x^2 or a_1
-      processed = processed.replace(/([a-zA-Z0-9]+[\^_][a-zA-Z0-9]+(?:[\^_][a-zA-Z0-9]+)*)/g, '$$$1$$');
-      
-      // Remove double dollars created by aggressive wrapping
-      processed = processed.replace(/\$\$\$/g, '$');
-      
-      parts[i] = processed;
-    }
+    // If this part is already a math block, NEVER touch it!
+    if (part.startsWith('$')) continue;
+
+    let processed = part;
+
+    // 1. Leaked \boxed{...} outside math
+    processed = processed.replace(/(?<!\$)\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(?!\$)/g, '$$\\boxed{$1}$$');
+
+    // 2. Leaked standalone \frac{...}{...} or \sqrt{...} outside math
+    processed = processed.replace(/(?<!\$)\\frac\{([^{}]+)\}\{([^{}]+)\}(?!\$)/g, '$\\frac{$1}{$2}$');
+    processed = processed.replace(/(?<!\$)\\sqrt\{([^{}]+)\}(?!\$)/g, '$\\sqrt{$1}$');
+
+    // 3. Leaked Greek letters or isolated math symbols: e.g. \lambda, \lambda_1, \alpha, \pm, \approx, \infty
+    processed = processed.replace(/(?<!\$)\\([a-zA-Z]+(?:_[a-zA-Z0-9]+|\^[a-zA-Z0-9]+)?)(?!\$)/g, (match, cmd) => {
+      const knownMathSymbols = /^(lambda|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|partial|nabla|infty|pm|mp|times|div|cdot|approx|neq|leq|geq|in|notin|subset|subseteq|cap|cup|forall|exists|to|rightarrow|leftarrow|Rightarrow|Leftarrow|Leftrightarrow)\b/;
+      if (knownMathSymbols.test(cmd)) {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    parts[i] = processed;
   }
   return parts.join('');
 }
@@ -224,7 +247,15 @@ export const SingleMathBlock = memo<SingleMathBlockProps>(({ math, displayMode =
   useEffect(() => {
     if (!elementRef.current) return;
     try {
-      katex.render(math.trim(), elementRef.current, {
+      // Clean and sanitize math expression: strip any accidental delimiters or stray dollar signs
+      let sanitized = math.trim();
+      sanitized = sanitized.replace(/^[$]+|[$]+$/g, '').trim();
+      sanitized = sanitized.replace(/^\\\(|\\\)$/g, '').trim();
+      sanitized = sanitized.replace(/^\\\[|\\\]$/g, '').trim();
+      // Remove any internal stray dollar signs that would break KaTeX parser
+      sanitized = sanitized.replace(/\$/g, '');
+
+      katex.render(sanitized, elementRef.current, {
         displayMode,
         throwOnError: false,
         trust: true,
@@ -232,6 +263,13 @@ export const SingleMathBlock = memo<SingleMathBlockProps>(({ math, displayMode =
         // Responsive: allow line breaks inside display math
         ...(displayMode ? { maxSize: Infinity } : {}),
       });
+
+      // Defensive check: if KaTeX produced a .katex-error element, prevent red error highlight
+      const errEl = elementRef.current.querySelector('.katex-error');
+      if (errEl) {
+        (errEl as HTMLElement).style.color = 'inherit';
+        (errEl as HTMLElement).title = '';
+      }
     } catch (err) {
       if (elementRef.current) elementRef.current.textContent = math;
     }
@@ -276,7 +314,7 @@ export const MathRenderer = memo<MathRendererProps>(({ text, displayMode = false
     let cleaned = cleanResponseText(text);
     if (!cleaned) return null;
 
-    // 2. Convert programming syntax to math (x^2, sqrt, <=, etc)
+    // 2. Convert programming syntax to math (x^2, sqrt, <=, etc) safely
     cleaned = convertProgrammingSyntaxToMath(cleaned);
 
     // 3. If the whole thing is raw math (no $ delimiters), render as a display block
@@ -288,12 +326,12 @@ export const MathRenderer = memo<MathRendererProps>(({ text, displayMode = false
       );
     }
 
-    // 4. Convert text-based matrices to LaTeX then auto-wrap bare commands
+    // 4. Convert text-based matrices to LaTeX then safely wrap bare commands
     let processed = convertTextMatricesToLatex(cleaned);
     processed = wrapRawLatexCommands(processed);
 
-    // 5. Split on math delimiters
-    const splitRegex = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+\$|\\\([\s\S]*?\\\))/g;
+    // 5. Split on math delimiters ($$...$$ or $...$)
+    const splitRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/g;
     const parts = processed.split(splitRegex);
 
     const rendered: React.ReactNode[] = [];
@@ -302,25 +340,23 @@ export const MathRenderer = memo<MathRendererProps>(({ text, displayMode = false
     parts.forEach((part, index) => {
       if (!part) return;
 
-      if ((part.startsWith('$$') && part.endsWith('$$')) ||
-          (part.startsWith('\\[') && part.endsWith('\\]'))) {
+      if (part.startsWith('$$') && part.endsWith('$$')) {
         hasBlock = true;
-        const math = part.startsWith('$$') ? part.slice(2, -2).trim() : part.slice(2, -2).trim();
+        const math = part.slice(2, -2).trim();
         rendered.push(
           <div key={index} className="math-display-block">
             <SingleMathBlock math={math} displayMode={true} />
           </div>
         );
-      } else if ((part.startsWith('$') && part.endsWith('$')) ||
-                 (part.startsWith('\\(') && part.endsWith('\\)'))) {
-        const math = part.startsWith('$') ? part.slice(1, -1).trim() : part.slice(2, -2).trim();
+      } else if (part.startsWith('$') && part.endsWith('$')) {
+        const math = part.slice(1, -1).trim();
         rendered.push(
           <span key={index} className="math-inline-container">
             <SingleMathBlock math={math} displayMode={false} />
           </span>
         );
       } else {
-        // 5. Apply our text formatting rules to plain text
+        // Apply text formatting rules to plain text
         const formattedText = applyTextFormattingRules(part);
         
         // Split on newlines to preserve paragraph spacing
