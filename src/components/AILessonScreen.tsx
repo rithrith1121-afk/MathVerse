@@ -45,6 +45,7 @@ import {
 import type {
   ConceptSection,
   FormulasSection,
+  FormulaItem,
   ExamplesSection,
   PracticeSection,
   QuizSection,
@@ -146,6 +147,18 @@ function SectionSkeleton({ label }: { label: string }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
+
+const LessonCard: React.FC<{ title: string; icon: any; children: React.ReactNode }> = ({ title, icon: Icon, children }) => (
+  <div className="glass-panel rounded-2xl border border-[#00FBFF]/20 overflow-hidden shadow-2xl relative mb-6">
+    <div className="bg-slate-950/60 border-b border-slate-900 px-6 py-4 flex items-center gap-2">
+      <Icon className="w-4 h-4 text-[#00FBFF]" />
+      <span className="text-xs font-mono text-[#00FBFF] uppercase tracking-widest">{title}</span>
+    </div>
+    <div className="p-6 md:p-8 overflow-y-auto font-sans text-slate-300 text-left">
+      {children}
+    </div>
+  </div>
+);
 
 export default function AILessonScreen({
   topic,
@@ -633,36 +646,28 @@ export default function AILessonScreen({
         {/* Content Panel */}
         <div className="lg:col-span-3 flex flex-col gap-6">
 
+          
           {/* ── TAB: Concept ── */}
           {activeTab === "concept" && renderSection(conceptState, "concept", "Concept Lecture", (data) => (
-            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-wide font-sans">{topic}</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Concept Lecture</p>
-              </div>
-
-              <div className="bg-[#0f131f]/50 border border-slate-900 rounded-xl p-5">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400 mb-3">Introduction</h4>
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              <LessonCard title="Topic Title & Introduction" icon={BookOpen}>
+                <h1 className="text-2xl font-bold text-white tracking-wide font-sans mb-4">{topic}</h1>
                 <p className="text-sm text-slate-300 leading-relaxed font-sans">{safeString(data.introduction)}</p>
-              </div>
+              </LessonCard>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="bg-slate-950/40 border border-purple-500/10 rounded-xl p-5">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-purple-400 mb-2">Why It Matters</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans">{safeString(data.whyImportant)}</p>
-                </div>
-                <div className="bg-slate-950/40 border border-amber-500/10 rounded-xl p-5">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-2">Real-world Applications</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans">{safeString(data.applications)}</p>
-                </div>
-              </div>
+              <LessonCard title="Why This Topic Matters" icon={Sparkles}>
+                <p className="text-sm text-slate-300 leading-relaxed font-sans">{safeString(data.whyImportant)}</p>
+              </LessonCard>
 
-              <div className="border border-slate-800/50 rounded-xl p-5">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-teal-400 mb-3">Foundational Concepts</h4>
-                <div className="text-xs text-slate-300 leading-relaxed">
+              <LessonCard title="Real-world Applications" icon={Compass}>
+                <p className="text-sm text-slate-300 leading-relaxed font-sans">{safeString(data.applications)}</p>
+              </LessonCard>
+
+              <LessonCard title="Basic Concepts" icon={BookOpen}>
+                <div className="text-sm text-slate-300 leading-relaxed">
                   <MathRenderer text={safeString(data.basicConcepts)} />
                 </div>
-              </div>
+              </LessonCard>
 
               <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
                 <p className="text-xs text-slate-400">Finished reading? Let's look at the formulas.</p>
@@ -677,481 +682,399 @@ export default function AILessonScreen({
             </div>
           ))}
 
+          
           {/* ── TAB: Formulas ── */}
           {activeTab === "formulas" && renderSection(formulasState, "formulas", "Formula Sheet", (data) => (
-            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-wide font-sans">{topic} — Formula Sheet</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Definitions & Derivations</p>
-              </div>
-
-              <div className="border border-slate-900 rounded-xl p-5 bg-[#0a0e1a]/40">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-purple-400 mb-3">Mathematical Definition</h4>
-                <p className="text-sm text-slate-300 leading-relaxed font-sans">{safeString(data.definitions)}</p>
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400">Core Formulas</h4>
-                {safeArray<{ name: string; formula: string; variables: string; explanation: string }>(data.formulas).map((item, idx) => (
-                  <div key={idx} className="border-b border-slate-900/50 py-4 flex flex-col gap-2">
-                    <div className="flex justify-between items-start flex-wrap gap-3">
-                      <span className="text-xs font-bold text-white font-mono">{safeString(item.name)}</span>
-                      <span className="font-mono text-xs text-cyan-300 select-all tracking-wider font-bold">
-                        <MathRenderer text={safeString(item.formula)} />
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-mono">Variables: <MathRenderer text={safeString(item.variables)} /></div>
-                    <div className="text-xs text-slate-400 leading-relaxed font-sans"><MathRenderer text={safeString(item.explanation)} /></div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="py-5">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-amber-500 mb-3">Formula Derivation</h4>
-                <div className="text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre select-all">
-                  <MathRenderer text={safeString(data.derivations)} />
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              <LessonCard title="Basic Definitions" icon={BookOpen}>
+                <div className="text-sm text-slate-300 leading-relaxed">
+                  <MathRenderer text={safeString(data.definitions)} block={true} />
                 </div>
-              </div>
+              </LessonCard>
+
+              <LessonCard title="Formulas" icon={ClipboardList}>
+                <div className="flex flex-col gap-4">
+                  {safeArray<FormulaItem>(data.formulas).map((item, idx) => (
+                    <div key={idx} className="bg-slate-950/40 border border-slate-900 rounded-xl p-5 relative overflow-hidden">
+                      <h4 className="text-sm font-bold text-white mb-2">{item.name}</h4>
+                      <p className="text-xs text-slate-400 mb-4">{item.explanation}</p>
+                      
+                      <div className="bg-[#0f131f] border border-cyan-500/20 rounded-lg p-4 mb-4 flex justify-center">
+                        <MathRenderer text={safeString(item.formula)} block={true} />
+                      </div>
+                      
+                      <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
+                        <h5 className="text-[10px] font-mono uppercase tracking-wider text-cyan-500 mb-2">Variables</h5>
+                        <div className="text-xs text-slate-400 font-mono">
+                          <MathRenderer text={safeString(item.variables)} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </LessonCard>
+
+              <LessonCard title="Derivations" icon={Zap}>
+                <div className="text-sm text-slate-300 leading-relaxed font-mono">
+                  <MathRenderer text={safeString(data.derivations)} block={true} />
+                </div>
+              </LessonCard>
 
               <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
-                <p className="text-xs text-slate-400">Formula layout complete. Let's study how to solve questions.</p>
+                <p className="text-xs text-slate-400">Ready to see how these are used?</p>
                 <button
                   onClick={() => handleTabChange("examples")}
                   className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
                 >
-                  <span>Study Solved Examples</span>
+                  <span>View Solved Examples</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           ))}
 
+          
           {/* ── TAB: Examples ── */}
           {activeTab === "examples" && renderSection(examplesState, "examples", "Solved Examples", (data) => (
-            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-8">
-              {/* Header */}
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-wide font-sans">{topic} — Solved Examples</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Step-by-step classroom walkthrough</p>
-              </div>
-
-              {/* Three Tiers */}
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              
               {[
-                { label: "Tier 1 — Beginner", color: "green", ex: data.beginnerExample, accentClass: "border-green-500/30 text-green-400" },
-                { label: "Tier 2 — Intermediate", color: "purple", ex: data.mediumExample, accentClass: "border-purple-500/30 text-purple-400" },
-                { label: "Tier 3 — Engineering", color: "amber", ex: data.engineeringExample, accentClass: "border-amber-500/30 text-amber-400" },
-              ].map(({ label, ex, accentClass }, idx) => (
-                <div key={idx} className="notebook-container overflow-hidden">
-                  <div className="notebook-page">
-                    {/* Example Header */}
-                    <div className="mb-5">
-                      <span className={`inline-block text-[10px] font-mono uppercase tracking-widest border rounded-full px-3 py-0.5 mb-3 ${accentClass}`}>
-                        {label}
-                      </span>
-                      <h3 className="text-base font-bold text-white tracking-wide font-sans leading-snug">
-                        {safeString(ex?.title, "Solved Example")}
-                      </h3>
-                      {/* Question — use div, never p, to avoid nesting violations */}
-                      <div className="text-sm text-slate-300 mt-2 leading-relaxed font-sans">
-                        <MathRenderer text={safeString(ex?.question)} block={true} />
-                      </div>
+                { type: 'beginnerExample', label: 'Beginner Example', data: data.beginnerExample, color: 'text-green-400' },
+                { type: 'mediumExample', label: 'Medium Example', data: data.mediumExample, color: 'text-amber-400' },
+                { type: 'engineeringExample', label: 'Engineering Example', data: data.engineeringExample, color: 'text-purple-400' }
+              ].map((ex, i) => (
+                ex.data && (
+                  <LessonCard key={i} title={ex.label + ": " + ex.data.title} icon={Compass}>
+                    <div className="bg-[#0f131f] border border-slate-800 rounded-xl p-5 mb-6">
+                      <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400 mb-2">Question</h4>
+                      <p className="text-sm text-white font-medium">{ex.data.question}</p>
                     </div>
 
-                    {/* Steps — Handwritten Classroom Notes Layout */}
-                    <div className="flex flex-col gap-0 mt-4">
-                      {safeArray<{ heading: string; explanation: string; equation: string }>(ex?.steps).map((step, sIdx) => (
-                        <div key={sIdx} className="lesson-step-card">
-                          {/* Step heading */}
-                          <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-[0.12em] font-semibold">
-                            {safeString(step.heading)}
-                          </div>
-
-                          {/* Explanation — plain text, div wrapper */}
-                          {step.explanation && (
-                            <div className="text-sm text-slate-300 leading-relaxed font-sans">
-                              <MathRenderer text={safeString(step.explanation)} block={true} />
-                            </div>
-                          )}
-
-                          {/* Equation — immediately after explanation, centred */}
+                    <div className="space-y-6">
+                      {safeArray<any>(ex.data.steps).map((step, idx) => (
+                        <div key={idx} className="relative pl-6 border-l-2 border-slate-800">
+                          <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-700 border-2 border-slate-900" />
+                          <h5 className={`text-xs font-bold font-mono uppercase tracking-wider ${ex.color} mb-2`}>{step.heading}</h5>
+                          <p className="text-sm text-slate-300 mb-3">{step.explanation}</p>
                           {step.equation && (
-                            <div className="math-display-block my-1">
-                              <MathRenderer text={step.equation} displayMode={true} />
+                            <div className="bg-slate-950 border border-slate-900 rounded-lg p-4">
+                              <MathRenderer text={step.equation} block={true} />
                             </div>
                           )}
                         </div>
                       ))}
                     </div>
 
-                    {/* Final Answer Banner */}
-                    {ex?.finalAnswer && (
-                      <div className="mt-6 flex items-start gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/15">
-                        <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider mb-1">Final Answer</div>
-                          <div className="text-sm font-semibold text-white font-sans leading-relaxed">
-                            <MathRenderer text={safeString(ex.finalAnswer)} block={true} />
-                          </div>
-                        </div>
+                    <div className="mt-6 pt-6 border-t border-slate-800">
+                      <h5 className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-2">Final Answer</h5>
+                      <div className="text-lg font-bold text-white">
+                        <MathRenderer text={safeString(ex.data.finalAnswer)} block={true} />
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  </LessonCard>
+                )
               ))}
 
-              {/* Tips / Tricks / Mistakes */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-900 pt-5">
-                <div className="bg-red-950/5 border border-red-500/15 rounded-xl p-4">
-                  <h4 className="text-[10px] font-mono uppercase text-red-400 tracking-wider mb-2">⚠ Common Mistakes</h4>
-                  <div className="text-xs text-slate-400 leading-relaxed font-sans">
-                    <MathRenderer text={safeString(data.commonMistakes)} block={true} />
+              <LessonCard title="Tips & Tricks" icon={Sparkles}>
+                <div className="space-y-4">
+                  <div className="bg-slate-950/40 border border-amber-500/20 rounded-xl p-4">
+                    <h5 className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-2">Common Mistakes</h5>
+                    <p className="text-sm text-slate-300">{safeString(data.commonMistakes)}</p>
+                  </div>
+                  <div className="bg-slate-950/40 border border-purple-500/20 rounded-xl p-4">
+                    <h5 className="text-xs font-mono uppercase tracking-wider text-purple-400 mb-2">Short Tricks</h5>
+                    <p className="text-sm text-slate-300">{safeString(data.shortTricks)}</p>
+                  </div>
+                  <div className="bg-slate-950/40 border border-emerald-500/20 rounded-xl p-4">
+                    <h5 className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-2">Exam Tips</h5>
+                    <p className="text-sm text-slate-300">{safeString(data.examTips)}</p>
                   </div>
                 </div>
-                <div className="bg-cyan-950/5 border border-cyan-500/15 rounded-xl p-4">
-                  <h4 className="text-[10px] font-mono uppercase text-cyan-400 tracking-wider mb-2">⚡ Short Tricks</h4>
-                  <div className="text-xs text-slate-400 leading-relaxed font-sans">
-                    <MathRenderer text={safeString(data.shortTricks)} block={true} />
-                  </div>
-                </div>
-                <div className="bg-purple-950/5 border border-purple-500/15 rounded-xl p-4">
-                  <h4 className="text-[10px] font-mono uppercase text-purple-400 tracking-wider mb-2">📝 Exam Tips</h4>
-                  <div className="text-xs text-slate-400 leading-relaxed font-sans">
-                    <MathRenderer text={safeString(data.examTips)} block={true} />
-                  </div>
-                </div>
-              </div>
+              </LessonCard>
 
-              {/* Next CTA */}
               <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
-                <p className="text-xs text-slate-400">Examples done! Ready to test yourself?</p>
+                <p className="text-xs text-slate-400">Time to try it yourself!</p>
                 <button
                   onClick={() => handleTabChange("practice")}
                   className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
                 >
-                  <span>Practice Problems</span>
+                  <span>Start Practice</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           ))}
 
+          
           {/* ── TAB: Practice ── */}
-          {activeTab === "practice" && (
-            practiceState.loading ? <SectionSkeleton label="Practice Question" /> :
-            practiceState.error ? <SectionError message={practiceState.error} onRetry={() => loadSection("practice", true)} /> :
-            practiceState.data ? (
-              <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-                <div>
-                  <h2 className="text-xl font-bold text-white tracking-wide font-sans">Practice Arena</h2>
-                  <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Interactive problem checker</p>
+          {activeTab === "practice" && renderSection(practiceState, "practice", "Practice Problems", (data) => (
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              <LessonCard title="Practice Problem" icon={HelpCircle}>
+                <div className="text-sm font-medium text-white mb-6">
+                  {data.question}
                 </div>
 
-                <div className="bg-[#0f131f]/40 border border-slate-900 rounded-xl p-6 flex flex-col gap-4">
-                  <h3 className="text-sm font-bold text-white font-mono leading-relaxed">
-                    <MathRenderer text={safeString(practiceState.data.question)} />
-                  </h3>
-                  <div className="p-3 bg-slate-950 border border-slate-900 rounded-lg text-xs text-slate-500 font-sans italic">
-                    💡 Hint: <MathRenderer text={safeString(practiceState.data.hint)} />
-                  </div>
-                </div>
+                <div className="space-y-4">
+                  {practiceStatus === "incorrect" && practiceAssessment && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 text-red-400 mb-2 font-bold font-mono text-xs uppercase tracking-wider">
+                        <AlertTriangle className="w-4 h-4" /> Needs Correction
+                      </div>
+                      <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                        <MathRenderer text={safeString(practiceAssessment.explanation)} />
+                      </div>
+                    </div>
+                  )}
 
-                {(practiceStatus === "unanswered" || practiceStatus === "checking") && (
-                  <div className="flex flex-col gap-3">
-                    <label className="text-xs font-mono text-slate-400 uppercase tracking-wider">Your Answer:</label>
-                    <div className="flex gap-3">
+                  {practiceStatus === "correct" && practiceAssessment && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 text-emerald-400 mb-2 font-bold font-mono text-xs uppercase tracking-wider">
+                        <CheckCircle className="w-4 h-4" /> Phenomenal Work
+                      </div>
+                      <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                        <MathRenderer text={safeString(practiceAssessment.explanation)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {practiceStatus !== "correct" ? (
+                    <div className="flex gap-2 items-center">
                       <input
                         type="text"
                         value={studentPracticeAnswer}
                         onChange={(e) => setStudentPracticeAnswer(e.target.value)}
-                        placeholder="Type expression (e.g. 2x + C, 4.5, etc.)"
-                        className="bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none flex-1 font-mono"
-                        onKeyDown={(e) => e.key === "Enter" && handlePracticeSubmit()}
-                        disabled={assessingPractice}
+                        placeholder="Enter your final answer..."
+                        className="flex-1 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl px-4 py-3 text-sm text-white focus:outline-none placeholder-slate-600 transition-all font-sans"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handlePracticeSubmit();
+                        }}
                       />
                       <button
                         onClick={handlePracticeSubmit}
-                        disabled={!studentPracticeAnswer.trim() || assessingPractice}
-                        className="cursor-pointer bg-gradient-to-r from-cyan-500 to-cyan-400 hover:shadow-[0_0_10px_rgba(6,182,212,0.3)] disabled:opacity-40 text-slate-950 font-bold px-6 rounded-lg text-xs font-mono uppercase flex items-center gap-1.5 transition-all"
+                        disabled={assessingPractice || !studentPracticeAnswer.trim()}
+                        className="cursor-pointer bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(0,210,255,0.2)] disabled:shadow-none flex items-center justify-center font-mono uppercase tracking-wider text-xs"
                       >
-                        {assessingPractice ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Checking</span></>
-                        ) : (
-                          <span>Submit</span>
-                        )}
+                        {assessingPractice ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
                       </button>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <button
+                      onClick={() => handleRetryPractice(practiceAssessment?.newExample)}
+                      className="cursor-pointer w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all font-mono uppercase tracking-wider text-xs border border-slate-700"
+                    >
+                      Try Another Problem
+                    </button>
+                  )}
+                </div>
+              </LessonCard>
 
-                {practiceStatus === "correct" && practiceAssessment && (
-                  <div className="bg-green-950/10 border border-green-500/20 rounded-xl p-5 flex gap-4">
-                    <CheckCircle className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-xs font-bold text-green-400 font-mono uppercase tracking-wider">Fantastic Job!</h4>
-                      <div className="text-xs text-slate-300 mt-2 font-sans leading-relaxed">
-                        <MathRenderer text={practiceAssessment.explanation} />
-                      </div>
-                      <div className="mt-5 flex gap-3 flex-wrap">
-                        <button onClick={() => handleRetryPractice()} className="cursor-pointer border border-green-500/40 text-green-300 hover:text-white bg-green-950/20 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all">
-                          <RefreshCw className="w-3.5 h-3.5" /> Another Problem
-                        </button>
-                        <button onClick={() => handleTabChange("quiz")} className="cursor-pointer bg-green-500/20 hover:bg-green-500/30 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
-                          <span>Advance to Quiz</span><ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              {practiceStatus === "correct" && (
+                <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
+                  <p className="text-xs text-slate-400">Ready for the topic quiz?</p>
+                  <button
+                    onClick={() => handleTabChange("quiz")}
+                    className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                  >
+                    <span>Start Quiz</span><ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
 
-                {practiceStatus === "incorrect" && practiceAssessment && (
-                  <div className="bg-red-950/10 border border-red-500/20 rounded-xl p-5 flex gap-4">
-                    <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-xs font-bold text-red-400 font-mono uppercase tracking-wider">Let's Adjust Your Approach</h4>
-                      <div className="text-xs text-slate-300 mt-2 font-sans leading-relaxed">
-                        <MathRenderer text={practiceAssessment.explanation} />
-                      </div>
-                      <div className="mt-5 flex gap-3 flex-wrap">
-                        {practiceAssessment.newExample && (
-                          <button
-                            onClick={() => handleRetryPractice(practiceAssessment.newExample)}
-                            className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
-                          >
-                            Try Similar Problem
-                          </button>
-                        )}
-                        <button onClick={() => handleRetryPractice()} className="cursor-pointer border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white bg-slate-900/60 px-4 py-2 rounded-lg text-xs font-semibold transition-all">
-                          New Question
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : null
-          )}
-
+          
           {/* ── TAB: Quiz ── */}
-          {activeTab === "quiz" && (
-            quizState.loading ? <SectionSkeleton label="Topic Quiz" /> :
-            quizState.error ? <SectionError message={quizState.error} onRetry={() => loadSection("quiz", true)} /> :
-            quizState.data ? (() => {
-              const questions = safeArray<LessonQuizQuestion>(quizState.data?.questions);
-              return (
-                <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-                  <div>
-                    <h2 className="text-xl font-bold text-white tracking-wide font-sans">{topic} — Topic Quiz</h2>
-                    <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Multiple-choice check</p>
-                  </div>
-
-                  <div className="flex flex-col gap-5">
-                    {questions.map((q, idx) => {
-                      const isCorrect = quizAnswers[q.id] === q.correctAnswer;
-                      return (
-                        <div key={q.id} className="bg-[#0f131f]/30 border border-slate-900 rounded-xl p-5 flex flex-col gap-4">
-                          <div className="flex justify-between items-start gap-2">
-                            <span className="text-xs font-bold text-white font-mono">Q{idx + 1}: <MathRenderer text={safeString(q.question)} /></span>
-                            {quizSubmitted && (
-                              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isCorrect ? "text-green-400 bg-green-500/10 border-green-500/20" : "text-red-400 bg-red-500/10 border-red-500/20"}`}>
-                                {isCorrect ? "Correct" : "Incorrect"}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {safeArray<string>(q.options).map((opt) => {
-                              const isSelected = quizAnswers[q.id] === opt;
-                              const isOptionCorrect = opt === q.correctAnswer;
-                              return (
-                                <button
-                                  key={opt}
-                                  disabled={quizSubmitted}
-                                  onClick={() => setQuizAnswers((prev) => ({ ...prev, [q.id]: opt }))}
-                                  className={`cursor-pointer w-full text-left p-3 rounded-lg border text-xs transition-all flex justify-between items-center ${
-                                    isSelected
-                                      ? quizSubmitted
-                                        ? isCorrect
-                                          ? "bg-green-500/10 border-green-500/50 text-white"
-                                          : "bg-red-500/10 border-red-500/50 text-white"
-                                        : "bg-cyan-500/10 border-cyan-500/50 text-white"
-                                      : quizSubmitted && isOptionCorrect
-                                      ? "bg-green-500/10 border-green-500/40 text-green-300"
-                                      : "bg-slate-950/60 border-slate-900 text-slate-400 hover:text-white"
-                                  }`}
-                                >
-                                  <span><MathRenderer text={safeString(opt)} /></span>
-                                  {isSelected && (
-                                    quizSubmitted
-                                      ? isCorrect
-                                        ? <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-                                        : <XCircle className="w-3.5 h-3.5 text-red-400" />
-                                      : <div className="w-3 h-3 rounded-full bg-cyan-400" />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {quizSubmitted && !isCorrect && (
-                            <div className="bg-slate-950 p-4 border border-slate-900 rounded-lg text-[11px] text-slate-400 font-sans leading-relaxed">
-                              <span className="text-cyan-400 font-mono font-bold">Professor: </span>
-                              <MathRenderer text={safeString(q.explanation)} />
-                            </div>
-                          )}
+          {activeTab === "quiz" && renderSection(quizState, "quiz", "Topic Quiz", (data) => {
+            const questions = safeArray<LessonQuizQuestion>(data.questions);
+            return (
+              <div className="flex flex-col gap-6 max-w-[70%]">
+                <LessonCard title="Topic Quiz" icon={Award}>
+                  <div className="space-y-8">
+                    {questions.map((q, idx) => (
+                      <div key={q.id || idx} className="bg-[#0f131f] border border-slate-800 rounded-xl p-5">
+                        <div className="flex items-start gap-3 mb-4">
+                          <span className="text-cyan-400 font-bold font-mono mt-0.5">Q{idx + 1}.</span>
+                          <p className="text-sm text-white font-medium">{q.question}</p>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-7">
+                          {safeArray<string>(q.options).map((opt, oIdx) => {
+                            const isSelected = quizAnswers[q.id] === opt;
+                            const isCorrectAnswer = opt === q.correctAnswer;
+                            const showResult = quizSubmitted;
+                            
+                            let btnClass = "border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-600 hover:bg-slate-900";
+                            if (showResult) {
+                              if (isCorrectAnswer) btnClass = "border-emerald-500 bg-emerald-500/10 text-emerald-400";
+                              else if (isSelected) btnClass = "border-red-500 bg-red-500/10 text-red-400";
+                              else btnClass = "border-slate-800 bg-slate-950 opacity-50 text-slate-500";
+                            } else if (isSelected) {
+                              btnClass = "border-cyan-500 bg-cyan-500/10 text-cyan-400";
+                            }
 
+                            return (
+                              <button
+                                key={oIdx}
+                                disabled={quizSubmitted}
+                                onClick={() => setQuizAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                                className={`cursor-pointer text-left p-3 rounded-lg border text-xs font-sans transition-all ${btnClass}`}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {quizSubmitted && (
+                          <div className={`mt-4 pl-7 text-xs leading-relaxed font-sans ${quizAnswers[q.id] === q.correctAnswer ? 'text-emerald-400' : 'text-slate-400'}`}>
+                            <MathRenderer text={safeString(q.explanation)} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
                   {!quizSubmitted ? (
                     <button
                       onClick={handleQuizSubmit}
                       disabled={Object.keys(quizAnswers).length < questions.length}
-                      className="cursor-pointer bg-gradient-to-r from-purple-500 to-purple-400 disabled:opacity-40 text-white font-bold text-xs font-mono tracking-wider py-3 px-6 rounded-lg uppercase flex items-center justify-center gap-1.5 hover:shadow-[0_0_10px_rgba(168,85,247,0.3)] transition-all"
+                      className="cursor-pointer mt-6 w-full bg-gradient-to-r from-cyan-500 to-cyan-400 hover:shadow-[0_0_15px_rgba(0,210,255,0.3)] disabled:opacity-30 disabled:shadow-none text-slate-950 font-bold py-3 rounded-xl transition-all font-mono uppercase tracking-wider text-xs"
                     >
-                      Submit Quiz
+                      Submit Quiz Responses
                     </button>
                   ) : (
-                    <div className="bg-[#0f131f]/60 border border-slate-900 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div>
-                        <div className="text-xs text-slate-400">Quiz Completed</div>
-                        <div className="text-lg font-bold font-mono text-white">
-                          Score: {quizScore} / {questions.length} ({quizScore >= 2 ? "Pass ✓" : "Retry required"})
-                        </div>
-                      </div>
-                      <div className="flex gap-3 flex-wrap">
-                        <button onClick={() => loadSection("quiz", true)} className="cursor-pointer border border-slate-800 text-slate-400 hover:text-white bg-slate-900 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all">
-                          <RefreshCw className="w-3.5 h-3.5" /> Redo Quiz
-                        </button>
-                        <button onClick={() => handleTabChange("challenge")} className="cursor-pointer bg-purple-500/20 hover:bg-purple-500/30 text-white border border-purple-500/30 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
-                          <span>Unlock Challenge</span><ChevronRight className="w-3.5 h-3.5" />
-                        </button>
+                    <div className="mt-6 flex flex-col items-center justify-center p-6 bg-slate-950 border border-slate-900 rounded-xl text-center">
+                      <div className="text-3xl font-bold font-mono text-white mb-2">{quizScore} / {questions.length}</div>
+                      <div className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                        {quizScore >= 2 ? "Brilliant Score!" : "Keep Reviewing!"}
                       </div>
                     </div>
                   )}
-                </div>
-              );
-            })() : null
-          )}
+                </LessonCard>
 
+                {quizSubmitted && quizScore >= 2 && (
+                  <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
+                    <p className="text-xs text-slate-400">Ready for the ultimate test?</p>
+                    <button
+                      onClick={() => handleTabChange("challenge")}
+                      className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                    >
+                      <span>Take the Challenge</span><ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          
           {/* ── TAB: Challenge ── */}
-          {activeTab === "challenge" && (
-            challengeState.loading ? <SectionSkeleton label="Engineering Challenge" /> :
-            challengeState.error ? <SectionError message={challengeState.error} onRetry={() => loadSection("challenge", true)} /> :
-            challengeState.data ? (
-              <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-                <div>
-                  <h2 className="text-xl font-bold text-white tracking-wide font-sans">Engineering Challenge</h2>
-                  <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Advanced math riddle</p>
+          {activeTab === "challenge" && renderSection(challengeState, "challenge", "Challenge Problem", (data) => (
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              <LessonCard title="Engineering Challenge" icon={Trophy}>
+                <div className="text-sm font-medium text-white mb-6">
+                  {data.question}
                 </div>
 
-                <div className="bg-[#0f131f]/60 border border-slate-900 rounded-xl p-6 flex flex-col gap-4">
-                  <h3 className="text-sm font-bold text-white font-mono leading-relaxed">
-                    <MathRenderer text={safeString(challengeState.data.question)} />
-                  </h3>
-                  {showChallengeHint ? (
-                    <div className="p-3 bg-purple-950/20 border border-purple-500/20 text-purple-300 text-xs rounded-lg font-sans">
-                      💡 Professor's Hint: <MathRenderer text={safeString(challengeState.data.hint)} />
+                <div className="bg-slate-950/40 border border-slate-900 rounded-xl p-4 mb-6">
+                  <div className="flex items-center gap-2 text-slate-400 mb-2 font-bold font-mono text-[10px] uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5" /> Hint
+                  </div>
+                  <div className="text-xs text-slate-500 leading-relaxed font-sans">
+                    {data.hint}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {challengeCorrect === false && challengeAssessment && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 text-red-400 mb-2 font-bold font-mono text-xs uppercase tracking-wider">
+                        <AlertTriangle className="w-4 h-4" /> Incorrect
+                      </div>
+                      <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                        <MathRenderer text={safeString(challengeAssessment.explanation)} />
+                      </div>
                     </div>
-                  ) : (
-                    <button onClick={() => setShowChallengeHint(true)} className="cursor-pointer w-fit text-xs font-mono text-purple-400 hover:text-purple-300 transition-colors">
-                      Reveal subtle hint?
-                    </button>
                   )}
-                </div>
 
-                {challengeCorrect === null ? (
-                  <div className="flex flex-col gap-3">
-                    <label className="text-xs font-mono text-slate-400 uppercase tracking-wider">Solution Answer:</label>
-                    <div className="flex gap-3">
+                  {challengeCorrect === true && challengeAssessment && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 text-emerald-400 mb-2 font-bold font-mono text-xs uppercase tracking-wider">
+                        <CheckCircle className="w-4 h-4" /> Challenge Completed!
+                      </div>
+                      <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                        <MathRenderer text={safeString(challengeAssessment.explanation)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {challengeCorrect !== true ? (
+                    <div className="flex gap-2 items-center">
                       <input
                         type="text"
                         value={studentChallengeAnswer}
                         onChange={(e) => setStudentChallengeAnswer(e.target.value)}
-                        placeholder="Submit final value or symbolic expression"
-                        className="bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none flex-1 font-mono"
+                        placeholder="Enter your final answer..."
+                        className="flex-1 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl px-4 py-3 text-sm text-white focus:outline-none placeholder-slate-600 transition-all font-sans"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleChallengeSubmit();
+                        }}
                       />
                       <button
                         onClick={handleChallengeSubmit}
-                        disabled={!studentChallengeAnswer.trim() || checkingChallenge}
-                        className="cursor-pointer bg-gradient-to-r from-purple-500 to-purple-400 disabled:opacity-40 text-white font-bold px-6 rounded-lg text-xs font-mono uppercase flex items-center gap-1.5 transition-all"
+                        disabled={checkingChallenge || !studentChallengeAnswer.trim()}
+                        className="cursor-pointer bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(0,210,255,0.2)] disabled:shadow-none flex items-center justify-center font-mono uppercase tracking-wider text-xs"
                       >
-                        {checkingChallenge ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>Verify</span>}
+                        {checkingChallenge ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className={`p-5 rounded-xl border flex gap-4 ${challengeCorrect ? "bg-green-950/10 border-green-500/20" : "bg-red-950/10 border-red-500/20"}`}>
-                    {challengeCorrect ? <CheckCircle className="w-5 h-5 text-green-400 shrink-0" /> : <XCircle className="w-5 h-5 text-red-400 shrink-0" />}
-                    <div>
-                      <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-white">
-                        {challengeCorrect ? "Challenge Conquered! 🏆" : "Not Quite — Try Again"}
-                      </h4>
-                      {challengeAssessment && (
-                        <div className="text-xs text-slate-300 mt-2 font-sans leading-relaxed">
-                          <MathRenderer text={challengeAssessment.explanation} />
-                        </div>
-                      )}
-                      {!challengeCorrect && (
-                        <button
-                          onClick={() => { setChallengeCorrect(null); setStudentChallengeAnswer(""); setChallengeAssessment(null); }}
-                          className="cursor-pointer mt-4 bg-red-500/10 border border-red-500/30 text-red-300 hover:text-white px-4 py-1.5 rounded-lg text-xs font-mono"
-                        >
-                          Retry Solution
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {challengeCorrect && (
-                  <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
-                    <p className="text-xs text-slate-400">Lesson path complete! View your summary.</p>
-                    <button
-                      onClick={() => handleTabChange("summary")}
-                      className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
-                    >
-                      <span>View Summary</span><ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : null
-          )}
-
-          {/* ── TAB: Summary ── */}
-          {activeTab === "summary" && renderSection(summaryState, "summary", "Lesson Summary", (data) => (
-            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-wide font-sans">Lesson Summary</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Key takeaways and next steps</p>
-              </div>
-
-              <div className="bg-[#0f131f]/50 border border-cyan-500/10 rounded-xl p-5">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400 mb-3">Lesson Recap</h4>
-                <div className="text-sm text-slate-300 leading-relaxed font-sans">
-                  <MathRenderer text={safeString(data.summary)} block={true} />
+                  ) : null}
                 </div>
-              </div>
+              </LessonCard>
 
-              <div className="bg-slate-950 border border-slate-900 rounded-xl p-5">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-3">Key Formula Cheat Sheet</h4>
-                <div className="text-xs text-cyan-300 font-mono leading-relaxed">
-                  <MathRenderer text={safeString(data.keyFormulas)} block={true} />
-                </div>
-              </div>
-
-              {safeString(data.nextTopic) && (
-                <div className="bg-purple-950/10 border border-purple-500/20 rounded-xl p-5 flex items-center justify-between gap-4">
-                  <div>
-                    <h4 className="text-xs font-mono uppercase tracking-wider text-purple-400 mb-1">Recommended Next Topic</h4>
-                    <p className="text-sm font-bold text-white">{safeString(data.nextTopic)}</p>
-                  </div>
-                  <Zap className="w-6 h-6 text-purple-400 shrink-0" />
+              {challengeCorrect && (
+                <div className="flex justify-between items-center p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
+                  <p className="text-xs text-slate-400">Lesson path complete! View your summary.</p>
+                  <button
+                    onClick={() => handleTabChange("summary")}
+                    className="cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                  >
+                    <span>View Summary</span><ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
+            </div>
+          ))}
 
-              <div className="border-t border-slate-900 pt-5 flex justify-end">
+          
+          {/* ── TAB: Summary ── */}
+          {activeTab === "summary" && renderSection(summaryState, "summary", "Lesson Summary", (data) => (
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              <LessonCard title="Lesson Summary" icon={Sparkles}>
+                <div className="bg-[#0f131f] border border-cyan-500/10 rounded-xl p-5 mb-6">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-cyan-400 mb-3">Lesson Recap</h4>
+                  <div className="text-sm text-slate-300 leading-relaxed font-sans">
+                    <MathRenderer text={safeString(data.summary)} block={true} />
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-900 rounded-xl p-5 mb-6">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-3">Key Formula Cheat Sheet</h4>
+                  <div className="text-xs text-cyan-300 font-mono leading-relaxed">
+                    <MathRenderer text={safeString(data.keyFormulas)} block={true} />
+                  </div>
+                </div>
+
+                {safeString(data.nextTopic) && (
+                  <div className="bg-purple-950/10 border border-purple-500/20 rounded-xl p-5 flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-mono uppercase tracking-wider text-purple-400 mb-1">Recommended Next Topic</h4>
+                      <p className="text-sm font-bold text-white">{safeString(data.nextTopic)}</p>
+                    </div>
+                    <Zap className="w-6 h-6 text-purple-400 shrink-0" />
+                  </div>
+                )}
+              </LessonCard>
+
+              <div className="flex justify-end p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
                 <button onClick={() => handleTabChange("progress")} className="cursor-pointer bg-gradient-to-r from-cyan-500 to-cyan-400 hover:shadow-[0_0_15px_rgba(0,210,255,0.3)] text-slate-950 font-bold text-xs font-mono tracking-wider py-3 px-6 rounded-lg uppercase transition-all">
                   View My Progress →
                 </button>
@@ -1159,48 +1082,46 @@ export default function AILessonScreen({
             </div>
           ))}
 
+          
           {/* ── TAB: Progress ── */}
           {activeTab === "progress" && (
-            <div className="glass-panel border border-slate-800/80 rounded-2xl p-6 md:p-8 flex flex-col gap-6">
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-wide font-sans">Lesson Graduation</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono uppercase">Scores, Badges, and Achievements</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {[
-                  { icon: Trophy, color: "cyan", label: "Lesson Completion", value: `${progress.completion_percentage}%` },
-                  { icon: Flame, color: "purple", label: "XP Earned", value: `+${progress.xp_earned} XP` },
-                  { icon: Award, color: "amber", label: "Badges Unlocked", value: `${earnedBadges.filter((b) => b.unlocked).length} / ${earnedBadges.length}` },
-                ].map(({ icon: Icon, color, label, value }, idx) => (
-                  <div key={idx} className="bg-[#0f131f]/40 border border-slate-900 rounded-xl p-5 flex flex-col items-center text-center justify-between">
-                    <div className={`w-16 h-16 rounded-full bg-${color}-500/10 border border-${color}-500/20 flex items-center justify-center mb-3`}>
-                      <Icon className={`w-8 h-8 text-${color}-400`} />
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500 font-mono uppercase leading-none">{label}</div>
-                      <div className="text-2xl font-bold text-white font-mono mt-1">{value}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Lesson Badges</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {earnedBadges.map((badge, idx) => (
-                    <div key={idx} className={`p-4 border rounded-xl flex gap-3 items-center ${badge.unlocked ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-950/20 border-slate-950 text-slate-600"}`}>
-                      <span className={`text-2xl ${badge.unlocked ? "" : "grayscale opacity-40"}`}>{badge.icon}</span>
+            <div className="flex flex-col gap-6 max-w-[70%]">
+              <LessonCard title="Lesson Graduation" icon={Activity}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                  {[
+                    { icon: Trophy, color: "cyan", label: "Lesson Completion", value: `${progress.completion_percentage}%` },
+                    { icon: Flame, color: "purple", label: "XP Earned", value: `+${progress.xp_earned} XP` },
+                    { icon: Award, color: "amber", label: "Badges Unlocked", value: `${earnedBadges.filter((b) => b.unlocked).length} / ${earnedBadges.length}` },
+                  ].map(({ icon: Icon, color, label, value }, idx) => (
+                    <div key={idx} className="bg-[#0f131f]/40 border border-slate-900 rounded-xl p-5 flex flex-col items-center text-center justify-between">
+                      <div className={`w-16 h-16 rounded-full bg-${color}-500/10 border border-${color}-500/20 flex items-center justify-center mb-3`}>
+                        <Icon className={`w-8 h-8 text-${color}-400`} />
+                      </div>
                       <div>
-                        <div className={`text-xs font-bold font-mono ${badge.unlocked ? "text-cyan-300" : ""}`}>{badge.name}</div>
-                        <div className="text-[10px] text-slate-500 font-sans leading-relaxed mt-0.5">{badge.desc}</div>
+                        <div className="text-xs text-slate-500 font-mono uppercase leading-none">{label}</div>
+                        <div className="text-2xl font-bold text-white font-mono mt-1">{value}</div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
 
-              <div className="border-t border-slate-900 pt-5 flex justify-end gap-3">
+                <div className="flex flex-col gap-3">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Lesson Badges</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {earnedBadges.map((badge, idx) => (
+                      <div key={idx} className={`p-4 border rounded-xl flex gap-3 items-center ${badge.unlocked ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-950/20 border-slate-950 text-slate-600"}`}>
+                        <span className={`text-2xl ${badge.unlocked ? "" : "grayscale opacity-40"}`}>{badge.icon}</span>
+                        <div>
+                          <div className={`text-xs font-bold font-mono ${badge.unlocked ? "text-cyan-300" : ""}`}>{badge.name}</div>
+                          <div className="text-[10px] text-slate-500 font-sans leading-relaxed mt-0.5">{badge.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </LessonCard>
+
+              <div className="flex justify-end p-4 rounded-xl border border-cyan-500/10 bg-cyan-950/5">
                 <button onClick={onBack} className="cursor-pointer bg-gradient-to-r from-cyan-500 to-cyan-400 hover:shadow-[0_0_15px_rgba(0,210,255,0.3)] text-slate-950 font-bold text-xs font-mono tracking-wider py-3 px-6 rounded-lg uppercase transition-all">
                   Return to Dashboard
                 </button>
@@ -1212,6 +1133,7 @@ export default function AILessonScreen({
       </div>
 
       {/* Floating Ask AI Button */}
+
       <button
         onClick={() => setShowAskAI(true)}
         className="cursor-pointer fixed bottom-6 right-6 p-4 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 text-slate-950 shadow-[0_4px_20px_rgba(6,182,212,0.3)] hover:scale-105 active:scale-95 transition-all duration-300 z-50 flex items-center justify-center"

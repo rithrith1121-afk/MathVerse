@@ -77,8 +77,8 @@ export default function App() {
 
   // Render an offline banner at top when offline
   const OfflineBanner = () => (
-    <div className="bg-red-900 text-white text-center py-2 font-mono text-sm">
-      MathVerse cannot reach the backend (Supabase). Check your internet connection or Supabase URL.
+    <div className="bg-amber-950/80 text-amber-200 border-b border-amber-500/30 text-center py-2 font-mono text-xs">
+      MathVerse is running in offline local mode. AI solving features require an internet connection.
     </div>
   );
 

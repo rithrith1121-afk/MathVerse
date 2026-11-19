@@ -84,11 +84,11 @@ export async function solveImageProblem(options: ImageSolveOptions): Promise<Ima
               {
                 role: 'user',
                 content: [
+                  { type: 'text', text: user },
                   {
                     type: 'image_url',
                     image_url: { url: dataUrl },
                   },
-                  { type: 'text', text: user },
                 ],
               },
             ],

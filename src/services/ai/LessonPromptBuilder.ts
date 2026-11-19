@@ -135,29 +135,27 @@ export function buildExamplesPrompt(topic: string, level: string): SectionPrompt
     system: BASE_SYSTEM,
     user: `Topic: "${topic}" | Level: "${level}"
 Return JSON with keys:
-- beginnerExample: { title, question, steps (array of 11 objects {heading, explanation, equation}), finalAnswer }
-- mediumExample: { title, question, steps (array of 11 objects {heading, explanation, equation}), finalAnswer }
-- engineeringExample: { title, question, steps (array of 11 objects {heading, explanation, equation}), finalAnswer }
+- beginnerExample: { title, question, steps (array of 8 objects {heading, explanation, equation}), finalAnswer }
+- mediumExample: { title, question, steps (array of 8 objects {heading, explanation, equation}), finalAnswer }
+- engineeringExample: { title, question, steps (array of 8 objects {heading, explanation, equation}), finalAnswer }
 - commonMistakes: 1-2 sentences
 - shortTricks: 1-2 sentences
 - examTips: 1-2 sentences
 
 Requirements for steps:
-1. Every example's steps array MUST contain EXACTLY 11 elements in order. Use these exact headings for the 11 steps:
-   - "Step 1: Understand the Question"
-   - "Step 2: Write the Given Data"
-   - "Step 3: Identify the Formula"
-   - "Step 4: Substitute the Given Values"
-   - "Step 5: Perform Every Calculation"
-   - "Step 6: Explain Every Step"
-   - "Step 7: Continue Until the Final Answer"
-   - "Step 8: Verification"
-   - "Step 9: Final Answer"
-   - "Step 10: Easy Explanation"
-   - "Step 11: Exam Tips"
-2. For each step, provide a detailed explanation in simple professor voice (under "explanation") and the corresponding math equation (under "equation").
-3. NEVER wrap equations in $$ or $ inside the JSON string; just return clean LaTeX.
-4. Show all intermediate calculations. Never skip a step or say "after simplifying".`,
+1. Every example's steps array MUST contain EXACTLY 8 elements in order. Use these exact headings for the 8 steps:
+   - "Step 1 — Understand the Question"
+   - "Step 2 — Write the Given Data"
+   - "Step 3 — Choose the Formula"
+   - "Step 4 — Substitute Values"
+   - "Step 5 — Perform Every Calculation"
+   - "Step 6 — Solve"
+   - "Step 7 — Verification"
+   - "Step 8 — Final Answer"
+2. For each step, provide a detailed explanation in simple professor voice (under "explanation") and the corresponding math equation (under "equation"). Explanation must be max 3 lines per paragraph, and explain WHY not just WHAT.
+3. CRITICAL FOR MATH RENDERING: You MUST use standard LaTeX syntax for all equations, formulas, and matrices. Wrap all math in $$ or $. E.g., \\lambda^2, \\frac{1}{2}, \\begin{pmatrix} 2 & 1 \\\\ 3 & 4 \\end{pmatrix}. Do NOT use plain text for math.
+4. CRITICAL FOR STEP 5: Expand every calculation. Never skip intermediate algebra. Every transformation must appear. Explicitly output intermediate algebraic steps connected by a downwards arrow \\downarrow in the "equation" field so students can trace the calculation perfectly (e.g., $$ 8 - 2\\lambda - 4\\lambda + \\lambda^2 \\\\ \\downarrow \\\\ 8 - 6\\lambda + \\lambda^2 $$).
+5. Show all intermediate calculations. Never skip a step or say "after simplifying".`,
   };
 }
 
@@ -184,7 +182,7 @@ export function buildQuizPrompt(topic: string, level: string): SectionPrompt {
 Return JSON: { "questions": [ {id, question, options (4 strings), correctAnswer, explanation} ] }
 Generate exactly 3 MCQ questions.
 Requirements:
-The "explanation" for each question MUST show the complete step-by-step solution formatted with the 11-step teaching methodology (Step 1 through Step 11) in plain text, with each step labeled.`,
+The "explanation" for each question MUST show the complete step-by-step solution formatted with the 8-step teaching methodology (Step 1 through Step 8) in plain text, with each step labeled.`,
   };
 }
 
@@ -195,7 +193,7 @@ export function buildChallengePrompt(topic: string, level: string): SectionPromp
 Return JSON: { question, hint, correctAnswer, explanation }
 One tough engineering-level challenge problem.
 Requirements:
-The "explanation" MUST show the complete step-by-step solution formatted with the 11-step teaching methodology (Step 1 through Step 11) in plain text, with each step labeled.`,
+The "explanation" MUST show the complete step-by-step solution formatted with the 8-step teaching methodology (Step 1 through Step 8) in plain text, with each step labeled.`,
   };
 }
 
@@ -222,6 +220,6 @@ Correct Answer: "${correctAnswer.slice(0, 100)}"
 Return JSON: { isCorrect (boolean), explanation (professor feedback), newExample? ({question, correctAnswer, hint}) }
 Be lenient with notation equivalence.
 Requirements:
-The "explanation" must provide the solution and feedback structured using the 11-step teaching methodology (Step 1 through Step 11) in plain text, with each step labeled.`,
+The "explanation" must provide the solution and feedback structured using the 8-step teaching methodology (Step 1 through Step 8) in plain text, with each step labeled.`,
   };
 }

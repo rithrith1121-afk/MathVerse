@@ -1,27 +1,7 @@
 import React, { useEffect, useRef, memo, useMemo } from 'react';
 import katex from 'katex';
 
-// ─── Text Repair ───────────────────────────────────────────────────────────────
-// Fixes AI output where words get fused together (e.g. "Theeigenvaluesare...")
-function repairWordJoins(text: string): string {
-  if (!text) return '';
-
-  // Insert space before capital letters that immediately follow a lowercase letter
-  // e.g. "TheEigenvalues" → "The Eigenvalues"
-  let fixed = text.replace(/([a-z])([A-Z])/g, '$1 $2');
-
-  // Insert space after punctuation if missing (but not inside math)
-  fixed = fixed.replace(/([.,;:!?])([A-Za-z])/g, '$1 $2');
-
-  // Fix common mashed-word patterns from AI response quirks
-  fixed = fixed
-    .replace(/(\w)(∴|∵|∈|∉|∪|∩|⊂|⊆|≤|≥|≠|≈|⇒|⇔|→|↦)/g, '$1 $2')
-    .replace(/(∴|∵|∈|∉|∪|∩|⊂|⊆|≤|≥|≠|≈|⇒|⇔|→|↦)(\w)/g, '$1 $2');
-
-  return fixed;
-}
-
-// ─── HTML / MathML Cleaner ─────────────────────────────────────────────────────
+// ─── Text Normalizer ────────────────────────────────────────────────────────────
 export function cleanResponseText(text: string): string {
   if (!text) return '';
 
@@ -30,37 +10,35 @@ export function cleanResponseText(text: string): string {
   // Extract LaTeX from pre-rendered KaTeX/MathML annotation tags (display blocks)
   cleaned = cleaned.replace(
     /<div[^>]*class=["']math-block-container[^>]*>[\s\S]*?<annotation\s+encoding=["']application\/x-tex["']\s*>([\s\S]*?)<\/annotation>[\s\S]*?<\/div>/gi,
-    (_, math) => `\n$$\n${math.trim()}\n$$\n`
+    (_, math) => `\n$$\n${math}\n$$\n`
   );
   cleaned = cleaned.replace(
     /<span[^>]*class=["']math-display-container[^>]*>[\s\S]*?<annotation\s+encoding=["']application\/x-tex["']\s*>([\s\S]*?)<\/annotation>[\s\S]*?<\/span>/gi,
-    (_, math) => `\n$$\n${math.trim()}\n$$\n`
+    (_, math) => `\n$$\n${math}\n$$\n`
   );
   cleaned = cleaned.replace(
     /<span[^>]*class=["']katex-display["'][^>]*>[\s\S]*?<annotation\s+encoding=["']application\/x-tex["']\s*>([\s\S]*?)<\/annotation>[\s\S]*?<\/span>/gi,
-    (_, math) => `\n$$\n${math.trim()}\n$$\n`
+    (_, math) => `\n$$\n${math}\n$$\n`
   );
 
   // Extract LaTeX from inline KaTeX annotations
   cleaned = cleaned.replace(
     /<span[^>]*class=["']math-inline-container[^>]*>[\s\S]*?<annotation\s+encoding=["']application\/x-tex["']\s*>([\s\S]*?)<\/annotation>[\s\S]*?<\/span>/gi,
-    (_, math) => ` $${math.trim()}$ `
+    (_, math) => `$${math}$`
   );
   cleaned = cleaned.replace(
     /<span[^>]*class=["']katex["'][^>]*>[\s\S]*?<annotation\s+encoding=["']application\/x-tex["']\s*>([\s\S]*?)<\/annotation>[\s\S]*?<\/span>/gi,
-    (_, math) => ` $${math.trim()}$ `
+    (_, math) => `$${math}$`
   );
   cleaned = cleaned.replace(
     /<annotation\s+encoding=["']application\/x-tex["']\s*>([\s\S]*?)<\/annotation>/gi,
-    (_, math) => ` $${math.trim()}$ `
+    (_, math) => `$${math}$`
   );
 
   // Remove MathML
   cleaned = cleaned.replace(/<math[^>]*>[\s\S]*?<\/math>/gi, '');
   // Strip remaining HTML tags
-  cleaned = cleaned.replace(/<[^>]+>/g, ' ');
-  // Collapse multiple spaces
-  cleaned = cleaned.replace(/ {2,}/g, ' ');
+  cleaned = cleaned.replace(/<[^>]+>/g, '');
 
   // Decode HTML entities
   cleaned = cleaned
@@ -71,7 +49,81 @@ export function cleanResponseText(text: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ');
 
-  return cleaned.trim();
+  return cleaned;
+}
+
+export function repairWordJoins(text: string): string {
+  // Just an alias to keep the rest of the code from breaking immediately,
+  // we will replace its usage entirely.
+  return text;
+}
+
+export function convertProgrammingSyntaxToMath(text: string): string {
+  if (!text) return '';
+  let processed = text;
+
+  // Replace comparison operators outside of existing math blocks?
+  processed = processed.replace(/<=/g, '\\leq');
+  processed = processed.replace(/>=/g, '\\geq');
+  processed = processed.replace(/!=/g, '\\neq');
+  processed = processed.replace(/->/g, '\\rightarrow');
+
+  // Convert raw a^b or a_b into KaTeX by wrapping in $...$ if not already wrapped
+  // This uses a lookbehind and lookahead to check for $ boundaries but simpler is just wrapping
+  // words that contain ^ or _ that aren't inside math blocks. That's done in wrapRawLatexCommands.
+
+  // sqrt(x) -> \sqrt{x}
+  processed = processed.replace(/(?<!\\)sqrt\(([^)]+)\)/g, '$\\sqrt{$1}$');
+
+  return processed;
+}
+
+export function applyTextFormattingRules(text: string): string {
+  if (!text) return '';
+  let processed = text;
+
+  // 1. De-merge English Words (order matters for overlapping replacements)
+  const wordSplits: [string, string][] = [
+    ['Findtheeigenvaluesofthematrix', 'Find the eigenvalues of the matrix'],
+    ['Thecharacteristicequation', 'The characteristic equation'],
+    ['characteristicequation', 'Characteristic Equation'],
+    ['identitymatrix', 'Identity Matrix'],
+    ['eigenvaluematrix', 'Eigenvalue Matrix'],
+    ['Findthe', 'Find the'],
+    ['ofthematrix', 'of the matrix'],
+    ['eigenvaluesof', 'eigenvalues of'],
+    ['theeigenvalues', 'the eigenvalues']
+  ];
+  for (const [key, value] of wordSplits) {
+    processed = processed.replace(new RegExp(key, 'gi'), value);
+  }
+
+  // 2. Format Variables vertically
+  if (processed.includes(':') && processed.includes(',') && processed.split(',').length > 1) {
+    const parts = processed.split(',');
+    const allHaveColons = parts.every(p => p.includes(':'));
+    if (allHaveColons) {
+      let result = 'Variables\n';
+      parts.forEach(p => {
+        let [vars, desc] = p.split(':');
+        desc = desc.trim();
+        // Capitalize the first letter of the description to match the user's requirements
+        desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+        result += `• ${vars.trim()} → ${desc}\n`;
+      });
+      return result;
+    }
+  }
+
+  // 3. Space out mathematical operators
+  // We apply space padding around: = + − × ÷
+  const operators = ['=', '\\+', '−', '×', '÷', '-'];
+  for (const op of operators) {
+    const regex = new RegExp(`(?<!\\s)(${op})(?!\\s)`, 'g');
+    processed = processed.replace(regex, ' $1 ');
+  }
+
+  return processed;
 }
 
 // ─── Raw Math Detection ────────────────────────────────────────────────────────
@@ -134,14 +186,26 @@ function flushMatrix(rows: string[][]): string {
 
 // ─── Auto-wrap Bare LaTeX Commands ────────────────────────────────────────────
 export function wrapRawLatexCommands(text: string): string {
-  const katexRegex = /\\(lambda|alpha|beta|gamma|delta|theta|pi|phi|psi|omega|sigma|sum|int|lim|frac|sqrt|begin|end|vmatrix|bmatrix|pmatrix|partial|nabla|left|right|infty|le|ge|ne|pm|to|Leftrightarrow|Rightarrow|cdot|times)/;
+  // We want to catch ANY leaked math: \lambda, ^, _, \frac, etc.
+  // We will split the text by existing math blocks so we only process plain text parts.
   const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/);
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     if (!part.startsWith('$') && !part.startsWith('\\[')) {
-      if (katexRegex.test(part)) {
-        parts[i] = part.replace(/(\\[a-zA-Z]+(?:\{[^{}]*\}|\s|[0-9]|\^|-|\+|=|\(|\))*)/g, '$$1$');
-      }
+      let processed = part;
+      // Catch bare \lambda, \frac, \begin, etc.
+      const katexRegex = /\\(lambda|alpha|beta|gamma|delta|theta|pi|phi|psi|omega|sigma|sum|int|lim|frac|sqrt|begin|end|vmatrix|bmatrix|pmatrix|partial|nabla|left|right|infty|le|ge|ne|pm|to|Leftrightarrow|Rightarrow|cdot|times)/g;
+      
+      // If there's a leaked command, we wrap the contiguous mathy word in $
+      processed = processed.replace(/(\\[a-zA-Z]+(?:\{[^{}]*\}|\s|[0-9]|\^|_|-|\+|=|\(|\))*)/g, '$$$1$$');
+      
+      // Catch leaked ^ or _ e.g. x^2 or a_1
+      processed = processed.replace(/([a-zA-Z0-9]+[\^_][a-zA-Z0-9]+(?:[\^_][a-zA-Z0-9]+)*)/g, '$$$1$$');
+      
+      // Remove double dollars created by aggressive wrapping
+      processed = processed.replace(/\$\$\$/g, '$');
+      
+      parts[i] = processed;
     }
   }
   return parts.join('');
@@ -209,23 +273,23 @@ export const MathRenderer = memo<MathRendererProps>(({ text, displayMode = false
     if (!text) return null;
 
     // 1. Strip / convert any legacy HTML / MathML
-    const cleaned = cleanResponseText(text);
+    let cleaned = cleanResponseText(text);
     if (!cleaned) return null;
 
-    // 2. Repair fused words from AI output
-    const repaired = repairWordJoins(cleaned);
+    // 2. Convert programming syntax to math (x^2, sqrt, <=, etc)
+    cleaned = convertProgrammingSyntaxToMath(cleaned);
 
     // 3. If the whole thing is raw math (no $ delimiters), render as a display block
-    if (displayMode || (!repaired.includes('$') && !repaired.includes('\\(') && !repaired.includes('\\[') && isRawMath(repaired))) {
+    if (displayMode || (!cleaned.includes('$') && !cleaned.includes('\\(') && !cleaned.includes('\\[') && isRawMath(cleaned))) {
       return (
         <div className={`math-display-block ${className}`}>
-          <SingleMathBlock math={repaired} displayMode={true} />
+          <SingleMathBlock math={cleaned} displayMode={true} />
         </div>
       );
     }
 
     // 4. Convert text-based matrices to LaTeX then auto-wrap bare commands
-    let processed = convertTextMatricesToLatex(repaired);
+    let processed = convertTextMatricesToLatex(cleaned);
     processed = wrapRawLatexCommands(processed);
 
     // 5. Split on math delimiters
@@ -256,22 +320,19 @@ export const MathRenderer = memo<MathRendererProps>(({ text, displayMode = false
           </span>
         );
       } else {
-        // Plain text — split on newlines to insert paragraph breaks
-        const lines = part.split('\n');
+        // 5. Apply our text formatting rules to plain text
+        const formattedText = applyTextFormattingRules(part);
+        
+        // Split on newlines to preserve paragraph spacing
+        const lines = formattedText.split('\n');
         lines.forEach((line, li) => {
-          const trimmed = line.trim();
-          if (!trimmed) {
-            if (li > 0) rendered.push(<br key={`br-${index}-${li}`} />);
-            return;
-          }
-          rendered.push(
-            <span key={`t-${index}-${li}`}>
-              {renderFormattedText(trimmed)}
-            </span>
-          );
-          // Add a space between text segments on same line
-          if (li < lines.length - 1 && lines[li + 1]?.trim()) {
-            rendered.push(' ');
+          if (li > 0) rendered.push(<br key={`br-${index}-${li}`} />);
+          if (line) {
+            rendered.push(
+              <span key={`t-${index}-${li}`} className="whitespace-pre-wrap font-sans font-normal">
+                {renderFormattedText(line)}
+              </span>
+            );
           }
         });
       }

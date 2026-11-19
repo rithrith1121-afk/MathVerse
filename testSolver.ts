@@ -7,9 +7,9 @@ console.log("API Key loaded:", process.env.VITE_GROQ_API_KEY ? "YES" : "NO");
 (async () => {
   try {
     const { generateMathSolution } = await import("./src/services/aiService.ts");
-    const question = "Solve for x: 3x^2 - 5x + 2 = 0";
+    const question = "Find the derivative of f(x) = (3x^2 + 2x) * sin(x)";
     console.log(`Querying: "${question}"...\n`);
-    const answer = await generateMathSolution(question, "Class 10");
+    const answer = await generateMathSolution(question, "Engineering Mathematics");
     console.log("Groq AI Solver Response:\n");
     console.log(answer);
   } catch (e) {

@@ -28,10 +28,10 @@ export async function preprocessImage(
   options: OCRProcessingOptions = {}
 ): Promise<File> {
   const {
-    contrast = 1.5,
+    contrast = 1.3,
     threshold = 128,
-    outputMime = 'image/png',
-    quality = 0.95,
+    outputMime = 'image/jpeg',
+    quality = 0.9,
   } = options;
 
   aiLog('INFO', `OCR preprocessing started: ${file.name} (${Math.round(file.size / 1024)}KB)`);
@@ -43,9 +43,23 @@ export async function preprocessImage(
     img.onload = () => {
       URL.revokeObjectURL(objectUrl);
 
+      // Downscale large mobile camera photos to prevent memory crashes (max 1600px)
+      const MAX_DIM = 1600;
+      let w = img.naturalWidth || 800;
+      let h = img.naturalHeight || 600;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        if (w > h) {
+          h = Math.round((h * MAX_DIM) / w);
+          w = MAX_DIM;
+        } else {
+          w = Math.round((w * MAX_DIM) / h);
+          h = MAX_DIM;
+        }
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
@@ -53,8 +67,8 @@ export async function preprocessImage(
         return;
       }
 
-      // Draw original image
-      ctx.drawImage(img, 0, 0);
+      // Draw downscaled image
+      ctx.drawImage(img, 0, 0, w, h);
 
       // Get pixel data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -66,17 +80,14 @@ export async function preprocessImage(
         const b = data[i + 2];
 
         // Step 1: Convert to grayscale using luminance formula
-        let gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-        // Step 2: Apply contrast enhancement
-        gray = Math.min(255, Math.max(0, (gray - 128) * contrast + 128));
+        // Step 2: Apply gentle contrast enhancement without clipping faint math symbols
+        const val = Math.min(255, Math.max(0, (gray - 128) * contrast + 128));
 
-        // Step 3: Binarization threshold — creates clean black/white output
-        const bw = gray > threshold ? 255 : 0;
-
-        data[i] = bw;
-        data[i + 1] = bw;
-        data[i + 2] = bw;
+        data[i] = val;
+        data[i + 1] = val;
+        data[i + 2] = val;
         // Alpha channel unchanged
       }
 
@@ -90,7 +101,7 @@ export async function preprocessImage(
             reject(new Error('Canvas toBlob failed'));
             return;
           }
-          const processedFile = new File([blob], `ocr_${file.name}`, { type: outputMime });
+          const processedFile = new File([blob], `ocr_${file.name.replace(/\.[^/.]+$/, "")}.jpg`, { type: outputMime });
           aiLog('INFO', `OCR preprocessing complete: ${Math.round(processedFile.size / 1024)}KB`);
           resolve(processedFile);
         },

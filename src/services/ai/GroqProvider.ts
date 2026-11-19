@@ -11,8 +11,11 @@ import { openStream } from './StreamingService';
 import { aiLog, aiError } from './AILogger';
 
 function getApiKey(): string {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_GROQ_API_KEY || '';
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GROQ_API_KEY) {
+    return import.meta.env.VITE_GROQ_API_KEY;
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY || '';
   }
   return '';
 }
