@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Sparkles, ArrowLeft, Loader2, PlaySquare, AlertCircle,
-  Copy, Check, CheckCircle2, ImagePlus, Camera, X, Zap
+  Copy, Check, CheckCircle2, ImagePlus, Camera, X, Zap,
+  Download, Crop, RotateCcw
 } from "lucide-react";
 import { MathLevel, UserState } from "../types";
 import { solveMathStreaming, solveImage } from "../services/ai/AIManager";
@@ -11,6 +12,8 @@ import type { MathVerseError } from "../services/ai/ErrorHandler";
 import { MathRenderer } from "./MathRenderer";
 import { supabase } from "../lib/supabase";
 import CameraCapture from "./CameraCapture";
+import ImageCropper from "./ImageCropper";
+import { downloadAnswerKeyPdf } from "../services/pdfService";
 
 interface AISolverScreenProps {
   userState: UserState;
@@ -32,11 +35,18 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
   const abortRef = useRef<AbortController | null>(null);
 
   // Image state (upload or camera)
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<"upload" | "camera" | null>(null);
+  const [isCropped, setIsCropped] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // PDF download state
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfDownloaded, setPdfDownloaded] = useState(false);
 
   // Quick pre-set complex problems
   const presets = [
@@ -58,17 +68,39 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
 
   const clearImage = useCallback(() => {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setOriginalFile(null);
     setImageFile(null);
     setImagePreviewUrl(null);
     setImageSource(null);
+    setIsCropped(false);
+    setShowCropper(false);
     // reset file input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [imagePreviewUrl]);
 
   const applyImageFile = (file: File) => {
-    clearImage();
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setOriginalFile(file);
     setImageFile(file);
     setImagePreviewUrl(URL.createObjectURL(file));
+    setIsCropped(false);
+    setShowCropper(false);
+  };
+
+  const handleCropConfirmed = (croppedFile: File) => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImageFile(croppedFile);
+    setImagePreviewUrl(URL.createObjectURL(croppedFile));
+    setIsCropped(true);
+    setShowCropper(false);
+  };
+
+  const handleResetToOriginal = () => {
+    if (!originalFile) return;
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImageFile(originalFile);
+    setImagePreviewUrl(URL.createObjectURL(originalFile));
+    setIsCropped(false);
   };
 
   // Revoke object URL on unmount
@@ -214,6 +246,25 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!solutionRaw || pdfGenerating) return;
+    setPdfGenerating(true);
+    try {
+      await downloadAnswerKeyPdf({
+        problemText: problemText.trim() || (imageFile ? `Image Problem (${imageFile.name})` : "Engineering Mathematics Problem"),
+        solutionRaw,
+        levelName: currentLevel.name,
+      });
+      setPdfDownloaded(true);
+      setTimeout(() => setPdfDownloaded(false), 2500);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      setError("Unable to generate the PDF. Please try again.");
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
   // Cancel in-flight request on unmount
   useEffect(() => {
     return () => { abortRef.current?.abort(); };
@@ -233,6 +284,15 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
         <CameraCapture
           onCapture={handleCameraCapture}
           onClose={() => setShowCamera(false)}
+        />
+      )}
+
+      {/* Image Cropper Modal */}
+      {showCropper && (originalFile || imageFile) && (
+        <ImageCropper
+          imageFile={originalFile || imageFile!}
+          onConfirmCrop={handleCropConfirmed}
+          onCancel={() => setShowCropper(false)}
         />
       )}
 
@@ -339,7 +399,12 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                   {/* Badge */}
                   <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/80 backdrop-blur-sm text-[10px] font-mono text-cyan-400 border border-cyan-500/20">
                     {imageSource === "camera" ? <Camera className="w-3 h-3" /> : <ImagePlus className="w-3 h-3" />}
-                    {imageSource === "camera" ? "Camera Capture" : "Uploaded Image"}
+                    <span>{imageSource === "camera" ? "Camera Capture" : "Uploaded Image"}</span>
+                    {isCropped && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[9px] font-bold">
+                        Cropped
+                      </span>
+                    )}
                   </div>
 
                   {/* Remove button */}
@@ -358,16 +423,44 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
                     className="w-full max-h-56 object-contain p-2"
                   />
 
-                  {/* Replace button */}
-                  <div className="border-t border-slate-800 flex items-center gap-2 px-3 py-2 bg-slate-900/60">
-                    <span className="text-[10px] text-slate-500 font-mono flex-1 truncate">{imageFile.name}</span>
-                    <button
-                      type="button"
-                      onClick={handleUploadClick}
-                      className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <ImagePlus className="w-3 h-3" /> Replace
-                    </button>
+                  {/* Action buttons bar */}
+                  <div className="border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-900/60">
+                    <span className="text-[10px] text-slate-500 font-mono truncate max-w-[130px] sm:max-w-[180px]">
+                      {imageFile.name}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      {/* Crop Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowCropper(true)}
+                        title="Crop mathematical problem area"
+                        className="text-[11px] font-mono font-medium text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1 px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-500/30 hover:border-cyan-400/60 shadow-[0_0_8px_rgba(0,210,255,0.1)]"
+                      >
+                        <Crop className="w-3 h-3" /> {isCropped ? "Adjust Crop" : "Crop Image"}
+                      </button>
+
+                      {/* Reset to Original if cropped */}
+                      {isCropped && originalFile && (
+                        <button
+                          type="button"
+                          onClick={handleResetToOriginal}
+                          title="Restore original uncropped image"
+                          className="text-[11px] font-mono text-slate-400 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 px-2 py-1 rounded border border-slate-800 hover:border-slate-700"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Original
+                        </button>
+                      )}
+
+                      {/* Replace */}
+                      <button
+                        type="button"
+                        onClick={handleUploadClick}
+                        className="text-[11px] font-mono text-slate-400 hover:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 px-2 py-1"
+                      >
+                        <ImagePlus className="w-3 h-3" /> Replace
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -461,26 +554,52 @@ export default function AISolverScreen({ userState, onBack, onIncrementSolved }:
               <div className="glass-panel rounded-2xl border border-[#00FBFF]/20 overflow-hidden shadow-2xl relative">
 
                 {/* Result header */}
-                <div className="bg-slate-950/60 border-b border-slate-900 px-6 py-4 flex items-center justify-between">
+                <div className="bg-slate-950/60 border-b border-slate-900 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs font-mono text-[#00FBFF] uppercase tracking-widest">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Math Resolution Complete
                   </div>
-                  <button
-                    onClick={handleCopySolution}
-                    className="flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-cyan-400 py-1.5 px-3 rounded-lg border border-slate-900 hover:border-cyan-500 transition-all cursor-pointer bg-slate-950/20"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Text</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCopySolution}
+                      className="flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-cyan-400 py-1.5 px-3 rounded-lg border border-slate-900 hover:border-cyan-500 transition-all cursor-pointer bg-slate-950/20"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Text</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleDownloadPdf}
+                      disabled={pdfGenerating}
+                      title="Download complete answer key as a PDF document"
+                      className="flex items-center gap-1.5 text-xs font-mono text-cyan-400 hover:text-cyan-300 py-1.5 px-3 rounded-lg border border-cyan-500/40 hover:border-cyan-400 transition-all cursor-pointer bg-cyan-950/40 hover:bg-cyan-900/40 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_12px_rgba(0,210,255,0.12)]"
+                    >
+                      {pdfGenerating ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                          <span>Generating PDF…</span>
+                        </>
+                      ) : pdfDownloaded ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">PDF Downloaded</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Download Answer Key</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Formatted solution body */}

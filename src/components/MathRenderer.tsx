@@ -188,13 +188,18 @@ export function normalizeMathDelimiters(text: string): string {
   // 2. Convert \( ... \) inline math blocks to $ ... $
   str = str.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
 
-  // 3. Ensure bare LaTeX environments (\begin{aligned}...\end{aligned}, \begin{matrix}...\end{matrix}) are wrapped in $$
-  str = str.replace(
-    /(?<!\$\$[\s\S]*?)(?<!\$)((\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}))(?!\$\$)/g,
-    (match) => `\n$$\n${match.trim()}\n$$\n`
-  );
+  // 3. Ensure bare LaTeX environments outside math blocks are wrapped in $$
+  const parts = str.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/);
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i].startsWith('$')) {
+      parts[i] = parts[i].replace(
+        /(\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\})/g,
+        (match) => `\n$$\n${match.trim()}\n$$\n`
+      );
+    }
+  }
 
-  return str;
+  return parts.join('');
 }
 
 // ─── Auto-wrap Bare LaTeX Commands ────────────────────────────────────────────

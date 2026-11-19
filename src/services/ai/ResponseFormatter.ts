@@ -120,11 +120,16 @@ export function normalizeMathDelimiters(text: string): string {
   let str = text;
   str = str.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
   str = str.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
-  str = str.replace(
-    /(?<!\$\$[\s\S]*?)(?<!\$)((\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}))(?!\$\$)/g,
-    (match) => `\n$$\n${match.trim()}\n$$\n`
-  );
-  return str;
+  const parts = str.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/);
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i].startsWith('$')) {
+      parts[i] = parts[i].replace(
+        /(\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\})/g,
+        (match) => `\n$$\n${match.trim()}\n$$\n`
+      );
+    }
+  }
+  return parts.join('');
 }
 
 /**
