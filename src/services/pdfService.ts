@@ -1,12 +1,20 @@
 /**
- * pdfService.ts — Generates professional, compact A4 Engineering Answer Key PDFs
- * from MathVerse AI solutions with crisp KaTeX mathematical rendering and
- * intelligent orphan-controlled pagination.
+ * pdfService.ts — Production-Quality A4 Engineering Answer Key PDF Export Engine.
+ *
+ * Implements dynamic content flow, zero content clipping, accurate A4 pagination,
+ * intelligent block grouping with orphan prevention, and full KaTeX mathematical fidelity.
  */
 
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import katex from 'katex';
+import {
+  cleanResponseText,
+  convertProgrammingSyntaxToMath,
+  convertTextMatricesToLatex,
+  normalizeMathDelimiters,
+  wrapRawLatexCommands,
+} from '../components/MathRenderer';
 
 export interface GeneratePdfOptions {
   problemText: string;
@@ -30,7 +38,7 @@ function generateFilename(problem: string): string {
 }
 
 /**
- * Escape HTML characters to prevent malformed DOM rendering.
+ * Escape HTML special characters to prevent DOM injection / malformed tags.
  */
 function escapeHtml(text: string): string {
   return text
@@ -58,121 +66,6 @@ function renderPdfKatex(tex: string, displayMode = false): string {
   } catch {
     return escapeHtml(tex);
   }
-}
-
-/**
- * Convert multiline/text-based matrices or determinants into LaTeX so KaTeX can render them.
- */
-function convertTextMatricesToLatex(text: string): string {
-  const lines = text.split('\n');
-  const processedLines: string[] = [];
-  let inDet = false;
-  let detRows: string[][] = [];
-  let inMat = false;
-  let matRows: string[][] = [];
-
-  const flushDet = (rows: string[][]): string => {
-    const latexRows = rows.map((r) => r.join(' & ')).join(' \\\\ ');
-    return `\n$$\\begin{vmatrix} ${latexRows} \\end{vmatrix}$$\n`;
-  };
-
-  const flushMat = (rows: string[][]): string => {
-    const latexRows = rows.map((r) => r.join(' & ')).join(' \\\\ ');
-    return `\n$$\\begin{pmatrix} ${latexRows} \\end{pmatrix}$$\n`;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const isDetLine =
-      trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 3 && !trimmed.slice(1, -1).includes('|');
-    const isMatLine =
-      trimmed.startsWith('[') && trimmed.endsWith(']') && trimmed.length > 3 && !trimmed.includes(';');
-
-    if (isDetLine) {
-      if (inMat) {
-        processedLines.push(flushMat(matRows));
-        inMat = false;
-        matRows = [];
-      }
-      inDet = true;
-      const content = trimmed.slice(1, -1).trim();
-      detRows.push(content.split(/\s+/));
-    } else if (isMatLine) {
-      if (inDet) {
-        processedLines.push(flushDet(detRows));
-        inDet = false;
-        detRows = [];
-      }
-      inMat = true;
-      const content = trimmed.slice(1, -1).trim();
-      matRows.push(content.split(/\s+/));
-    } else {
-      if (inDet) {
-        processedLines.push(flushDet(detRows));
-        inDet = false;
-        detRows = [];
-      }
-      if (inMat) {
-        processedLines.push(flushMat(matRows));
-        inMat = false;
-        matRows = [];
-      }
-      processedLines.push(lines[i]);
-    }
-  }
-
-  if (inDet) processedLines.push(flushDet(detRows));
-  if (inMat) processedLines.push(flushMat(matRows));
-
-  return processedLines.join('\n');
-}
-
-/**
- * Normalize LaTeX delimiters: \[...\] -> $$...$$ and \(...\) -> $...$
- */
-function normalizeLatexDelimiters(text: string): string {
-  if (!text) return '';
-  let str = text;
-  str = str.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
-  str = str.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
-
-  const parts = str.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/);
-  for (let i = 0; i < parts.length; i++) {
-    if (!parts[i].startsWith('$')) {
-      parts[i] = parts[i].replace(
-        /(\\begin\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\}[\s\S]*?\\end\{(?:aligned|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align\*?)\})/g,
-        (match) => `\n$$\n${match.trim()}\n$$\n`
-      );
-    }
-  }
-  return parts.join('');
-}
-
-/**
- * Wrap standalone math commands in $ if they were emitted without delimiters.
- */
-function wrapRawMathCommands(text: string): string {
-  if (!text) return '';
-  const normalized = normalizeLatexDelimiters(text);
-  const parts = normalized.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/);
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (part.startsWith('$')) continue;
-
-    let processed = part;
-    processed = processed.replace(/(?<!\$)\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(?!\$)/g, '$$\\boxed{$1}$$');
-    processed = processed.replace(/(?<!\$)\\frac\{([^{}]+)\}\{([^{}]+)\}(?!\$)/g, '$\\frac{$1}{$2}$');
-    processed = processed.replace(/(?<!\$)\\sqrt\{([^{}]+)\}(?!\$)/g, '$\\sqrt{$1}$');
-
-    processed = processed.replace(/(?<!\$)\\([a-zA-Z]+(?:_[a-zA-Z0-9]+|\^[a-zA-Z0-9]+)?)(?!\$)/g, (match, cmd) => {
-      const knownSymbols = /^(lambda|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|partial|nabla|infty|pm|mp|times|div|cdot|approx|neq|leq|geq|in|notin|subset|subseteq|cap|cup|forall|exists|to|rightarrow|leftarrow|Rightarrow|Leftarrow|Leftrightarrow)\b/;
-      return knownSymbols.test(cmd) ? `$${match}$` : match;
-    });
-
-    parts[i] = processed;
-  }
-  return parts.join('');
 }
 
 /**
@@ -204,18 +97,18 @@ function parsePdfCallouts(text: string): string {
 
 /**
  * Render inline markdown and KaTeX into compact HTML designed specifically for PDF printing.
+ * Zero overflow:hidden, auto dynamic height, preserved line wrapping.
  */
 function renderPdfContent(rawText: string): string {
   if (!rawText) return '';
 
-  let processed = convertTextMatricesToLatex(rawText);
-  processed = wrapRawMathCommands(processed);
+  let processed = rawText;
 
-  // Render display math blocks with tight margins (4px top/bottom, centered, no dark backgrounds)
+  // Render display math blocks with tight margins (centered, auto height, no dark background, no overflow:hidden)
   processed = processed.replace(
     /\$\$([\s\S]*?)\$\$/g,
     (_, math) =>
-      `<div class="pdf-display-math" style="margin: 4px 0; padding: 1px 0; text-align: center; color: #0f172a; line-height: 1.25; overflow: hidden;">${renderPdfKatex(
+      `<div class="pdf-math-display" style="margin: 4px 0; padding: 1px 0; text-align: center; color: #0f172a; line-height: 1.25; width: 100%; box-sizing: border-box;">${renderPdfKatex(
         math,
         true
       )}</div>`
@@ -225,7 +118,7 @@ function renderPdfContent(rawText: string): string {
   processed = processed.replace(
     /\$([^$\n]+)\$/g,
     (_, math) =>
-      `<span class="pdf-inline-math" style="display: inline-block; vertical-align: -1px; margin: 0 1px; color: #0f172a;">${renderPdfKatex(
+      `<span class="pdf-math-inline" style="display: inline-block; vertical-align: -1px; margin: 0 1px; color: #0f172a;">${renderPdfKatex(
         math,
         false
       )}</span>`
@@ -242,7 +135,7 @@ function renderPdfContent(rawText: string): string {
 
   processed = parsePdfCallouts(processed);
 
-  // Process lines (bullet points, paragraphs)
+  // Process individual lines (bullet points, subheadings, paragraphs)
   const lines = processed.split('\n');
   const renderedLines: string[] = [];
 
@@ -255,7 +148,7 @@ function renderPdfContent(rawText: string): string {
       renderedLines.push(
         `<div style="display: flex; gap: 6px; margin: 2px 0; font-size: 9.5pt; line-height: 1.35; color: #334155; align-items: baseline;">
           <span style="color: #0891b2; font-weight: bold; font-size: 11px; line-height: 1.3;">•</span>
-          <div style="flex: 1;">${trimmed.slice(2)}</div>
+          <div style="flex: 1; word-break: break-word;">${trimmed.slice(2)}</div>
         </div>`
       );
     } else if (trimmed.startsWith('### ')) {
@@ -264,11 +157,11 @@ function renderPdfContent(rawText: string): string {
           ${trimmed.slice(4)}
         </div>`
       );
-    } else if (trimmed.startsWith('<div class="pdf-display-math"') || trimmed.startsWith('<div style="margin: 4px')) {
+    } else if (trimmed.startsWith('<div class="pdf-math-display"') || trimmed.startsWith('<div style="margin: 4px')) {
       renderedLines.push(trimmed);
     } else {
       renderedLines.push(
-        `<div style="font-size: 9.5pt; color: #334155; line-height: 1.35; margin: 3px 0;">${trimmed}</div>`
+        `<div style="font-size: 9.5pt; color: #334155; line-height: 1.35; margin: 3px 0; word-break: break-word;">${trimmed}</div>`
       );
     }
   }
@@ -302,6 +195,7 @@ function parseSolutionSections(solutionMarkdown: string): ParsedSection[] {
 
       sections.push({ title, body, isFinalAnswer });
     } else {
+      // Intro or unheaded section
       sections.push({
         title: 'Problem Overview',
         body: trimmed,
@@ -320,9 +214,8 @@ function parseSolutionSections(solutionMarkdown: string): ParsedSection[] {
 function splitSectionBodyIntoChunks(body: string): string[] {
   if (!body.trim()) return [];
 
-  const normalized = normalizeLatexDelimiters(body);
   // Split on display math boundaries $$...$$
-  const parts = normalized.split(/(\$\$[\s\S]*?\$\$)/);
+  const parts = body.split(/(\$\$[\s\S]*?\$\$)/);
   const chunks: string[] = [];
 
   for (const part of parts) {
@@ -348,8 +241,9 @@ function splitSectionBodyIntoChunks(body: string): string[] {
 }
 
 /**
- * Downloads the current mathematical solution as an A4 Engineering Answer Key PDF
- * with space-efficient layout, tight vertical margins, and intelligent pagination.
+ * Downloads the current mathematical solution as an A4 Engineering Answer Key PDF.
+ * Uses real A4 printable heights, auto dynamic container heights, orphan-controlled
+ * pagination, and full KaTeX rendering.
  */
 export async function downloadAnswerKeyPdf({
   problemText,
@@ -361,7 +255,15 @@ export async function downloadAnswerKeyPdf({
   }
 
   const filename = generateFilename(problemText);
-  const sections = parseSolutionSections(solutionRaw);
+
+  // 1. Normalize the full document text using battle-tested normalizers
+  let normalized = cleanResponseText(solutionRaw);
+  normalized = convertProgrammingSyntaxToMath(normalized);
+  normalized = convertTextMatricesToLatex(normalized);
+  normalized = normalizeMathDelimiters(normalized);
+  normalized = wrapRawLatexCommands(normalized);
+
+  const sections = parseSolutionSections(normalized);
   const formattedDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -369,18 +271,19 @@ export async function downloadAnswerKeyPdf({
   });
   const refCode = `MV-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-  // 1. Off-screen staging container (A4 width: 794px at 96 DPI)
+  // 2. Off-screen staging container (A4 width: 794px at standard 96 DPI)
   const staging = document.createElement('div');
   staging.id = 'mathverse-pdf-staging';
   staging.style.position = 'fixed';
-  staging.style.left = '-9999px';
+  staging.style.left = '0';
   staging.style.top = '0';
   staging.style.width = '794px';
   staging.style.background = '#ffffff';
   staging.style.color = '#0f172a';
   staging.style.fontFamily =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-  staging.style.zIndex = '-1000';
+  staging.style.zIndex = '-9999';
+  staging.style.opacity = '0';
   staging.style.pointerEvents = 'none';
 
   document.body.appendChild(staging);
@@ -388,14 +291,15 @@ export async function downloadAnswerKeyPdf({
   try {
     // Exact A4 dimensions at 96 DPI (210mm x 297mm)
     const PAGE_HEIGHT = 1123;
-    // Top padding: 36px (~9.5mm), Bottom padding: 30px (~8mm), Left/Right: 48px (~13mm)
     const PAGE_PADDING_TOP = 36;
     const PAGE_PADDING_BOTTOM = 30;
-    const PAGE_PADDING_X = 48;
+    const PAGE_PADDING_X = 48; // Left/Right 48px (~12.7mm) -> printable content width = 698px
 
-    // Available content heights considering headers and footers with safe buffer
-    const AVAILABLE_CONTENT_HEIGHT_P1 = 965; // Room for full Page 1 Header (~52px) + Footer (~20px)
-    const AVAILABLE_CONTENT_HEIGHT_PN = 995; // Room for compact running header (~20px) + Footer (~20px)
+    // Printable content capacity per page (measured without flex: 1 or overflow: hidden constraints)
+    // Page 1: 1123 - 36 (top) - 30 (bottom) - 58 (header) - 24 (footer) - 20 (safety margin) = 955px
+    const AVAILABLE_CONTENT_HEIGHT_P1 = 955;
+    // Page 2+: 1123 - 36 (top) - 30 (bottom) - 24 (header) - 24 (footer) - 19 (safety margin) = 990px
+    const AVAILABLE_CONTENT_HEIGHT_PN = 990;
 
     const pages: HTMLDivElement[] = [];
 
@@ -403,6 +307,7 @@ export async function downloadAnswerKeyPdf({
       const pageEl = document.createElement('div');
       pageEl.className = 'pdf-a4-page';
       pageEl.style.width = '794px';
+      pageEl.style.minHeight = `${PAGE_HEIGHT}px`;
       pageEl.style.height = `${PAGE_HEIGHT}px`;
       pageEl.style.boxSizing = 'border-box';
       pageEl.style.padding = `${PAGE_PADDING_TOP}px ${PAGE_PADDING_X}px ${PAGE_PADDING_BOTTOM}px ${PAGE_PADDING_X}px`;
@@ -410,12 +315,15 @@ export async function downloadAnswerKeyPdf({
       pageEl.style.display = 'flex';
       pageEl.style.flexDirection = 'column';
       pageEl.style.justifyContent = 'space-between';
-      pageEl.style.overflow = 'hidden';
+      pageEl.style.position = 'relative';
 
       // Header
       const headerEl = document.createElement('div');
+      headerEl.style.boxSizing = 'border-box';
+      headerEl.style.width = '100%';
+
       if (pageIndex === 0) {
-        // Page 1 Header: Compact, professional engineering document header
+        // Page 1 Header: Compact professional engineering document title bar
         headerEl.innerHTML = `
           <div style="border-bottom: 2px solid #0891b2; padding-bottom: 8px; margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-end;">
@@ -450,21 +358,21 @@ export async function downloadAnswerKeyPdf({
       }
       pageEl.appendChild(headerEl);
 
-      // Content Area
+      // Content Area: AUTO/DYNAMIC HEIGHT (NO flex: 1, NO fixed height, NO overflow: hidden)
       const contentEl = document.createElement('div');
       contentEl.className = 'pdf-page-content';
-      contentEl.style.flex = '1';
-      contentEl.style.display = 'flex';
-      contentEl.style.flexDirection = 'column';
-      contentEl.style.overflow = 'hidden';
+      contentEl.style.width = '100%';
+      contentEl.style.boxSizing = 'border-box';
       pageEl.appendChild(contentEl);
 
-      // Footer
+      // Footer: Pushed to bottom via margin-top: auto
       const footerEl = document.createElement('div');
       footerEl.className = 'pdf-page-footer';
+      footerEl.style.boxSizing = 'border-box';
+      footerEl.style.width = '100%';
+      footerEl.style.marginTop = 'auto';
       footerEl.style.borderTop = '1px solid #e2e8f0';
       footerEl.style.paddingTop = '5px';
-      footerEl.style.marginTop = '6px';
       footerEl.style.display = 'flex';
       footerEl.style.justifyContent = 'space-between';
       footerEl.style.fontSize = '8pt';
@@ -488,27 +396,6 @@ export async function downloadAnswerKeyPdf({
     const getMaxAllowedHeight = () =>
       currentPageIndex === 0 ? AVAILABLE_CONTENT_HEIGHT_P1 : AVAILABLE_CONTENT_HEIGHT_PN;
 
-    /**
-     * Appends an element to the current page. If it exceeds available vertical space,
-     * it moves the element to a newly spawned page.
-     */
-    const appendWithPageBreak = (el: HTMLElement, isTopOnNewPage = false): void => {
-      currentContent.appendChild(el);
-      const maxAllowed = getMaxAllowedHeight();
-
-      if (currentContent.scrollHeight > maxAllowed && currentContent.children.length > 1) {
-        currentContent.removeChild(el);
-        currentPageIndex++;
-        const next = createPageElement(currentPageIndex);
-        currentContent = next.content;
-
-        if (isTopOnNewPage) {
-          el.style.marginTop = '0';
-        }
-        currentContent.appendChild(el);
-      }
-    };
-
     // Add Compact Problem Statement Box to Page 1
     if (problemText.trim()) {
       const problemCard = document.createElement('div');
@@ -530,9 +417,10 @@ export async function downloadAnswerKeyPdf({
       currentContent.appendChild(problemCard);
     }
 
-    // Add Solution Sections with Granular Orphan Control
+    // Process Sections with Smart Block Flow and Orphan Prevention
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
       const section = sections[sIdx];
+      const maxAllowed = getMaxAllowedHeight();
 
       if (section.isFinalAnswer) {
         // Highlighted Final Answer Box (kept together as a single atomic unit)
@@ -553,11 +441,24 @@ export async function downloadAnswerKeyPdf({
             ${renderPdfContent(section.body)}
           </div>
         `;
-        appendWithPageBreak(finalBox, true);
+
+        currentContent.appendChild(finalBox);
+
+        if (currentContent.offsetHeight > maxAllowed && currentContent.children.length > 1) {
+          currentContent.removeChild(finalBox);
+          currentPageIndex++;
+          const next = createPageElement(currentPageIndex);
+          currentContent = next.content;
+          finalBox.style.marginTop = '0';
+          currentContent.appendChild(finalBox);
+        }
         continue;
       }
 
-      // Step / Section Header Element
+      // Normal Section
+      const chunks = splitSectionBodyIntoChunks(section.body);
+
+      // Section Header Element
       const headerEl = document.createElement('div');
       headerEl.style.fontSize = '10.5pt';
       headerEl.style.fontWeight = '700';
@@ -569,41 +470,131 @@ export async function downloadAnswerKeyPdf({
       headerEl.style.textTransform = 'capitalize';
       headerEl.textContent = section.title;
 
-      const chunks = splitSectionBodyIntoChunks(section.body);
-
       if (chunks.length === 0) {
-        // Section with only a header
-        const singleHeaderWrapper = document.createElement('div');
-        singleHeaderWrapper.style.marginTop = sIdx === 0 ? '0' : '10px';
-        singleHeaderWrapper.appendChild(headerEl);
-        appendWithPageBreak(singleHeaderWrapper, true);
+        const headerContainer = document.createElement('div');
+        headerContainer.style.marginTop = currentContent.children.length === 0 ? '0' : '10px';
+        headerContainer.appendChild(headerEl);
+        currentContent.appendChild(headerContainer);
+
+        if (currentContent.offsetHeight > maxAllowed && currentContent.children.length > 1) {
+          currentContent.removeChild(headerContainer);
+          currentPageIndex++;
+          const next = createPageElement(currentPageIndex);
+          currentContent = next.content;
+          headerContainer.style.marginTop = '0';
+          currentContent.appendChild(headerContainer);
+        }
         continue;
       }
 
+      // Try appending the entire section intact first (smart block grouping)
+      const fullSectionEl = document.createElement('div');
+      fullSectionEl.className = 'pdf-step-container';
+      fullSectionEl.style.boxSizing = 'border-box';
+      fullSectionEl.style.marginTop = currentContent.children.length === 0 ? '0' : '10px';
+      fullSectionEl.appendChild(headerEl.cloneNode(true));
+
+      for (const chunk of chunks) {
+        const chunkEl = document.createElement('div');
+        chunkEl.style.boxSizing = 'border-box';
+        chunkEl.innerHTML = renderPdfContent(chunk);
+        fullSectionEl.appendChild(chunkEl);
+      }
+
+      currentContent.appendChild(fullSectionEl);
+
+      if (currentContent.offsetHeight <= maxAllowed) {
+        // Fits completely on the current page! Keep it intact!
+        continue;
+      }
+
+      // If it doesn't fit intact, check remaining space on current page
+      currentContent.removeChild(fullSectionEl);
+      const usedHeight = currentContent.offsetHeight;
+      const remainingHeight = maxAllowed - usedHeight;
+
+      // If page is nearly full (< 150px left) and step fits on a fresh page, move whole step to next page
+      if (remainingHeight < 150 && fullSectionEl.offsetHeight <= AVAILABLE_CONTENT_HEIGHT_PN) {
+        currentPageIndex++;
+        const next = createPageElement(currentPageIndex);
+        currentContent = next.content;
+        fullSectionEl.style.marginTop = '0';
+        currentContent.appendChild(fullSectionEl);
+        continue;
+      }
+
+      // Otherwise, plenty of space remains (or step is huge): decompose step into sub-blocks
       // ORPHAN CONTROL: Combine Section Header + First Chunk into a single LeadBlock
-      // This guarantees the header is never stranded alone at the bottom of a page.
       const leadBlock = document.createElement('div');
       leadBlock.className = 'pdf-step-lead';
       leadBlock.style.boxSizing = 'border-box';
-      leadBlock.style.marginTop = sIdx === 0 ? '0' : '10px';
+      leadBlock.style.marginTop = currentContent.children.length === 0 ? '0' : '10px';
       leadBlock.appendChild(headerEl);
 
       const firstChunkEl = document.createElement('div');
+      firstChunkEl.style.boxSizing = 'border-box';
       firstChunkEl.innerHTML = renderPdfContent(chunks[0]);
       leadBlock.appendChild(firstChunkEl);
 
-      appendWithPageBreak(leadBlock, true);
+      currentContent.appendChild(leadBlock);
 
-      // Remaining chunks of this step flow naturally
+      if (currentContent.offsetHeight > maxAllowed && currentContent.children.length > 1) {
+        currentContent.removeChild(leadBlock);
+        currentPageIndex++;
+        const next = createPageElement(currentPageIndex);
+        currentContent = next.content;
+        leadBlock.style.marginTop = '0';
+        currentContent.appendChild(leadBlock);
+      }
+
+      // Append remaining chunks
       for (let cIdx = 1; cIdx < chunks.length; cIdx++) {
         const chunkEl = document.createElement('div');
         chunkEl.style.boxSizing = 'border-box';
         chunkEl.innerHTML = renderPdfContent(chunks[cIdx]);
-        appendWithPageBreak(chunkEl, false);
+
+        currentContent.appendChild(chunkEl);
+
+        if (currentContent.offsetHeight > maxAllowed && currentContent.children.length > 1) {
+          currentContent.removeChild(chunkEl);
+          currentPageIndex++;
+          const next = createPageElement(currentPageIndex);
+          currentContent = next.content;
+          chunkEl.style.marginTop = '0';
+          currentContent.appendChild(chunkEl);
+        }
       }
     }
 
-    // Update accurate total page numbers across all footers
+    // 3. Wait for all fonts and KaTeX mathematics to finish rendering and layout to stabilize
+    if (document.fonts && document.fonts.ready) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // fallback
+      }
+    }
+
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 100);
+        });
+      });
+    });
+
+    // 4. Ensure wide mathematical formulas fit within printable page width
+    const mathDisplays = staging.querySelectorAll<HTMLElement>('.pdf-math-display');
+    mathDisplays.forEach((el) => {
+      const katexEl = el.querySelector<HTMLElement>('.katex-display') || el;
+      if (katexEl.scrollWidth > el.clientWidth && el.clientWidth > 0) {
+        const scale = Math.max(0.75, (el.clientWidth - 4) / katexEl.scrollWidth);
+        katexEl.style.transform = `scale(${scale})`;
+        katexEl.style.transformOrigin = 'center center';
+      }
+    });
+
+    // 5. Update accurate total page numbers across all footers
     const totalPages = pages.length;
     pages.forEach((pageEl, idx) => {
       const numSpan = pageEl.querySelector('.pdf-page-number');
@@ -612,7 +603,7 @@ export async function downloadAnswerKeyPdf({
       }
     });
 
-    // 3. Render each page using html2canvas and assemble into jsPDF
+    // 6. Render each page using html2canvas and assemble into jsPDF
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -623,7 +614,7 @@ export async function downloadAnswerKeyPdf({
     for (let i = 0; i < pages.length; i++) {
       const pageEl = pages[i];
       const canvas = await html2canvas(pageEl, {
-        scale: 2, // Crisp 2x rendering for razor-sharp KaTeX mathematics
+        scale: 2, // 2x resolution for razor-sharp KaTeX mathematics
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
@@ -637,10 +628,10 @@ export async function downloadAnswerKeyPdf({
       pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
     }
 
-    // 4. Trigger download
+    // 7. Save file locally
     pdf.save(filename);
   } finally {
-    // 5. Clean up staging container
+    // 8. Clean up staging container
     if (staging.parentNode) {
       staging.parentNode.removeChild(staging);
     }
