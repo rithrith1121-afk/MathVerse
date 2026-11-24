@@ -13,8 +13,9 @@
 [build.environment]
   # Node version — keep in sync with your local dev environment
   NODE_VERSION = "20"
-  # Vite storage mode (local = no Supabase, everything in localStorage)
-  VITE_STORAGE_MODE = "local"
+  # Note: Set VITE_GROQ_API_KEY and VITE_STORAGE_MODE in
+  # Netlify Dashboard → Site Settings → Environment Variables.
+  # Never hardcode API keys or secrets here.
 
 # ─── SPA Redirect — send all routes to index.html ───────────────────────────
 [[redirects]]
