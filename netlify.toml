@@ -1,0 +1,78 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# MathVerse — Netlify Deployment Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+[build]
+  # Directory to run the build command from
+  base    = "."
+  # Command used to build the application
+  command = "npm install && npm run build"
+  # Directory that will be published (Vite outputs here)
+  publish = "dist"
+
+[build.environment]
+  # Node version — keep in sync with your local dev environment
+  NODE_VERSION = "20"
+  # Vite storage mode (local = no Supabase, everything in localStorage)
+  VITE_STORAGE_MODE = "local"
+
+# ─── SPA Redirect — send all routes to index.html ───────────────────────────
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# ─── Security Headers ────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options          = "DENY"
+    X-Content-Type-Options   = "nosniff"
+    Referrer-Policy          = "strict-origin-when-cross-origin"
+    Permissions-Policy       = "camera=(), microphone=(self), geolocation=()"
+
+# ─── Cache static assets aggressively ────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.woff"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.ttf"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# ─── Cache HTML minimally (always fetch fresh) ───────────────────────────────
+[[headers]]
+  for = "*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# ─── Cache PNG/SVG assets ────────────────────────────────────────────────────
+[[headers]]
+  for = "*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# ─── Dev server (local `netlify dev`) ────────────────────────────────────────
+[dev]
+  command     = "npm run dev"
+  port        = 3000
+  targetPort  = 3000
+  publish     = "dist"
+  autoLaunch  = false
