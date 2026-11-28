@@ -389,7 +389,7 @@ const startListening = (port: number) => {
   });
   server.on('listening', () => {
     console.log("\n  🚀 \x1b[36m\x1b[1mMathVerse Server is active!\x1b[0m");
-    console.log(`  ➜  \x1b[1mLocal:\x1b[0m    \x1b[35mhttp://localhost:${port}/\x1b[0m`);
+    console.log(`  ➜  \x1b[1mURL:\x1b[0m      \x1b[35mhttp://localhost:${port}/\x1b[0m`);
     console.log(`  ➜  \x1b[1mNetwork:\x1b[0m  \x1b[35mhttp://127.0.0.1:${port}/\x1b[0m`);
     console.log(`  ➜  \x1b[1mAPI Health:\x1b[0m \x1b[32mhttp://localhost:${port}/api/health\x1b[0m\n`);
   });

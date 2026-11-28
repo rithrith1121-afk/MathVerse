@@ -42,7 +42,7 @@ Whether you type a problem, upload a photo of a question, or capture one on came
 ### 📚 AI Learning Curriculum
 - Structured lessons organized by engineering mathematics topics
 - Interactive AI-powered lesson delivery with real-time Q&A
-- Progress tracking persisted locally across sessions
+- Progress tracking persisted in browser storage across sessions
 
 ### 📝 Practice System
 - Topic-specific practice problems with difficulty calibration
@@ -53,7 +53,7 @@ Whether you type a problem, upload a photo of a question, or capture one on came
 - One-click **Download Answer Key as PDF**
 - Professional A4 layout with compact typography
 - Complete mathematical content — zero clipping, zero missing symbols
-- KaTeX fonts bundled locally for consistent rendering across devices
+- KaTeX fonts bundled for consistent rendering across devices
 - Intelligent A4 pagination with orphan prevention
 
 ### 📊 Analytics Dashboard
@@ -74,7 +74,7 @@ Whether you type a problem, upload a photo of a question, or capture one on came
 ### 👤 Profile & Onboarding
 - Guided onboarding with level selection
 - Avatar customization
-- Local-first data persistence (no mandatory account required)
+- Offline-first data persistence (no mandatory account required)
 
 ---
 
@@ -132,10 +132,7 @@ Edit `.env`:
 VITE_GROQ_API_KEY="gsk_your_key_here"
 GROQ_API_KEY="gsk_your_key_here"
 
-# Storage mode (keep as 'local' for offline-first)
-VITE_STORAGE_MODE=local
-
-# App URL
+# App URL (optional)
 APP_URL="http://localhost:3000"
 ```
 
@@ -149,41 +146,25 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🏗️ Building for Production
+## ☁️ Deploy to Netlify
 
-```bash
-npm run build
-```
+### One-Click Deploy
 
-The production-ready static site will be output to the `dist/` directory.
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/rithrith1121-afk/MathVerse)
 
----
+### Manual Deployment
 
-## ☁️ Deploying to Netlify
+1. Push your code to GitHub (branch `main`)
+2. Connect the repository in Netlify Dashboard
+3. Set **Build command**: `npm install && npm run build`
+4. Set **Publish directory**: `dist`
+5. Under **Environment Variables**, add only:
+   - `VITE_GROQ_API_KEY` → your Groq API key
+   - `GROQ_API_KEY` → your Groq API key (server-side)
+6. Click **Deploy site**
 
-### Option A — Deploy via Netlify UI (Recommended)
-
-1. Push your code to GitHub (already done).
-2. Go to [netlify.com](https://netlify.com) → **New site from Git**.
-3. Connect your GitHub repository: `rithrith1121-afk/MathVerse`.
-4. Build settings are auto-detected from `netlify.toml`:
-   - **Build command:** `npm install && npm run build`
-   - **Publish directory:** `dist`
-5. Set environment variables in **Site Settings → Environment Variables**:
-   - `VITE_GROQ_API_KEY` → your Groq key
-   - `VITE_STORAGE_MODE` → `local`
-6. Click **Deploy site**.
-
-### Option B — Deploy via Netlify CLI
-
-```bash
-npm install -g netlify-cli
-netlify login
-netlify init
-netlify deploy --prod
-```
-
-> **Important:** Always set `VITE_GROQ_API_KEY` as an environment variable in your Netlify dashboard — never commit your API key to the repository.
+> **Important:** Do NOT set `VITE_STORAGE_MODE` in Netlify's environment variables.
+> The app defaults to browser storage automatically — no configuration needed.
 
 ---
 
@@ -191,30 +172,19 @@ netlify deploy --prod
 
 ```
 MathVerse/
-├── public/
-│   └── mathverse-logo.png
+├── public/                         # Static assets (logo, fonts)
 ├── src/
 │   ├── components/
-│   │   ├── AISolverScreen.tsx      # Main AI Math Solver UI
-│   │   ├── AILessonScreen.tsx      # Interactive lesson delivery
-│   │   ├── DashboardScreen.tsx     # Home dashboard
-│   │   ├── PracticeScreen.tsx      # Practice problems
-│   │   ├── ProfileScreen.tsx       # User profile & settings
-│   │   ├── AnalyticsDashboard.tsx  # Progress charts
-│   │   ├── StudyPlannerScreen.tsx  # AI study planner
-│   │   ├── ImageCropper.tsx        # Canvas-based image cropper
-│   │   ├── CameraCapture.tsx       # Camera input handler
-│   │   ├── MathRenderer.tsx        # KaTeX math rendering engine
-│   │   ├── AuthScreen.tsx          # Authentication UI
-│   │   ├── OnboardingScreen.tsx    # First-run onboarding
-│   │   └── LevelSelectionScreen.tsx
+│   │   ├── solver/                 # AI Math Solver UI components
+│   │   ├── lessons/                # AI Learning Curriculum components
+│   │   ├── practice/               # Practice system components
+│   │   ├── analytics/              # Analytics dashboard
+│   │   ├── planner/                # Study planner
+│   │   ├── profile/                # User profile
+│   │   └── ui/                     # Shared UI components
 │   ├── services/
 │   │   ├── ai/
-│   │   │   ├── AIManager.ts        # Central AI coordinator & fallback chain
-│   │   │   ├── GroqProvider.ts     # Groq API client
-│   │   │   ├── ImageSolver.ts      # Vision model for image problems
-│   │   │   ├── ResponseFormatter.ts # Answer formatting & KaTeX injection
-│   │   │   ├── PromptBuilder.ts    # Structured prompt engineering
+│   │   │   ├── AIManager.ts        # Orchestrates AI calls with structured prompt engineering
 │   │   │   ├── RetryManager.ts     # Exponential backoff retry logic
 │   │   │   ├── ErrorHandler.ts     # Error classification
 │   │   │   └── models.config.ts    # Model chain configuration
@@ -243,7 +213,7 @@ MathVerse/
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start local development server on port 3000 |
+| `npm run dev` | Start development server on port 3000 |
 | `npm run build` | Build optimized production bundle to `dist/` |
 | `npm run lint` | Run TypeScript type checking |
 | `npm run clean` | Remove the `dist/` directory |
@@ -288,9 +258,9 @@ The Answer Key PDF export system is a **DOM-Native, Content-First** rendering pi
 
 1. **Text Normalization** — Cleans and normalizes LaTeX delimiters, matrices, and math commands
 2. **Block Tokenization** — Parses the solution into indivisible logical blocks (display math, bullets, paragraphs, callouts)
-3. **Native KaTeX Rendering** — Each math block is rendered directly via `katex.render()` into DOM nodes — no string slicing that could sever formulas
+3. **Native KaTeX Rendering** — Each math block is rendered directly via `katex.render()` into DOM nodes
 4. **A4 Pagination** — Intelligent content-aware page breaks with orphan prevention
-5. **Font Bundling** — All KaTeX fonts are bundled locally to prevent CORS canvas clipping issues
+5. **Font Bundling** — All KaTeX fonts are bundled to prevent CORS canvas clipping issues
 6. **html2canvas → jsPDF** — High-resolution 2x canvas capture assembled into A4 PDF
 
 ---
@@ -301,8 +271,10 @@ The Answer Key PDF export system is a **DOM-Native, Content-First** rendering pi
 |----------|----------|-------------|
 | `VITE_GROQ_API_KEY` | ✅ Yes | Groq API key for AI model access |
 | `GROQ_API_KEY` | ✅ Yes | Server-side Groq key (for server.ts) |
-| `VITE_STORAGE_MODE` | Optional | `local` (default) uses localStorage only |
-| `APP_URL` | Optional | Base URL of the app (default: `http://localhost:3000`) |
+| `APP_URL` | Optional | Base URL of the app |
+
+> **Storage mode** is handled automatically by the app using browser localStorage.
+> No environment variable is needed for this.
 
 ---
 

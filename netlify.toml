@@ -1,29 +1,16 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# MathVerse — Netlify Deployment Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-
 [build]
-  # Directory to run the build command from
   base    = "."
-  # Command used to build the application
   command = "npm install && npm run build"
-  # Directory that will be published (Vite outputs here)
   publish = "dist"
 
 [build.environment]
-  # Node version — keep in sync with your local dev environment
   NODE_VERSION = "20"
-  # Note: Set VITE_GROQ_API_KEY and VITE_STORAGE_MODE in
-  # Netlify Dashboard → Site Settings → Environment Variables.
-  # Never hardcode API keys or secrets here.
 
-# ─── SPA Redirect — send all routes to index.html ───────────────────────────
 [[redirects]]
   from   = "/*"
   to     = "/index.html"
   status = 200
 
-# ─── Security Headers ────────────────────────────────────────────────────────
 [[headers]]
   for = "/*"
   [headers.values]
@@ -32,7 +19,6 @@
     Referrer-Policy          = "strict-origin-when-cross-origin"
     Permissions-Policy       = "camera=(), microphone=(self), geolocation=()"
 
-# ─── Cache static assets aggressively ────────────────────────────────────────
 [[headers]]
   for = "/assets/*"
   [headers.values]
@@ -53,13 +39,11 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# ─── Cache HTML minimally (always fetch fresh) ───────────────────────────────
 [[headers]]
   for = "*.html"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# ─── Cache PNG/SVG assets ────────────────────────────────────────────────────
 [[headers]]
   for = "*.png"
   [headers.values]
@@ -70,10 +54,9 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
-# ─── Dev server (local `netlify dev`) ────────────────────────────────────────
 [dev]
-  command     = "npm run dev"
-  port        = 3000
-  targetPort  = 3000
-  publish     = "dist"
-  autoLaunch  = false
+  command    = "npm run dev"
+  port       = 3000
+  targetPort = 3000
+  publish    = "dist"
+  autoLaunch = false
